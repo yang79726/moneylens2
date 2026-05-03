@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4361ee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MoneyLens">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
+<title>MoneyLens 财务分析</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.svg" type="image/svg+xml">
+<script>window.__ML_DEBUG = []; function mlLog(...a) { window.__ML_DEBUG.push(a.join(' ')); console.log('[MoneyLens]', ...a); }</script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js" onerror="mlLog('ECharts CDN failed')"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="mlLog('SheetJS CDN failed')"></script>
+<style>
+:root{--bg:#f4f7fe;--card:#fff;--text:#1e293b;--text2:#64748b;--border:#e2e8f0;--primary:#4361ee;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b;--shadow:0 2px 12px rgba(0,0,0,.08)}
+.dark{--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--border:#334155;--shadow:0 2px 12px rgba(0,0,0,.3)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:.3s;padding-bottom:80px;overscroll-behavior:none;-webkit-overflow-scrolling:touch;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* Header */
+.header{background:linear-gradient(135deg,#4361ee,#3f37c9);color:#fff;padding:48px 20px 32px;text-align:center;border-radius:0 0 28px 28px;position:relative}
+.header h1{font-size:24px;font-weight:700}
+.header p{font-size:13px;opacity:.8;margin-top:4px}
+.header-actions{position:absolute;top:16px;right:16px;display:flex;gap:8px}
+.header-btn{width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.container{padding:16px;max-width:480px;margin:0 auto}
+/* Cards */
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--border);transition:.3s}
+.card-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px}
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:16px;padding:32px 16px;text-align:center;cursor:pointer;transition:.3s;margin-top:-20px;background:var(--card)}
+.upload-zone:active{border-color:var(--primary);background:rgba(67,97,238,.05)}
+.upload-zone .icon{font-size:40px;margin-bottom:8px}
+.upload-zone h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.upload-zone p{font-size:12px;color:var(--text2)}
+.file-info{font-size:13px;color:var(--primary);font-weight:600;margin-top:8px}
+/* Toggle */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:14px;font-weight:500}
+.toggle{position:relative;width:44px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;transition:.3s;border:none;flex-shrink:0}
+.toggle.on{background:var(--primary)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.3s}
+.toggle.on::after{left:22px}
+/* Button */
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:.3s;text-align:center}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:active{opacity:.8}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+/* Loader */
+.loader{display:none;text-align:center;padding:48px 0}
+.spinner{width:36px;height:36px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* KPI Grid */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.kpi-card{background:var(--card);border-radius:14px;padding:14px;text-align:center;border:1px solid var(--border);box-shadow:var(--shadow);transition:.3s}
+.kpi-card .label{font-size:11px;color:var(--text2);margin-bottom:4px}
+.kpi-card .value{font-size:20px;font-weight:700}
+.kpi-card .sub{font-size:11px;color:var(--text2);margin-top:2px}
+.kpi-full{grid-column:1/-1}
+/* Cat Advisor */
+.cat-card{background:linear-gradient(135deg,var(--card),rgba(67,97,238,.05));border-left:4px solid var(--primary);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+.cat-header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.cat-avatar{font-size:36px;transition:.3s}
+.cat-avatar.shake{animation:shake .4s infinite}
+@keyframes shake{0%,100%{transform:translate(0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-1px)}}
+.cat-name{font-size:15px;font-weight:600}
+.cat-badges{display:flex;gap:6px;flex-wrap:wrap}
+.cat-badge{padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;border:1px solid}
+.cat-summary{font-size:14px;font-weight:600;margin-bottom:6px}
+.cat-detail{font-size:13px;color:var(--text2);line-height:1.6;min-height:40px}
+/* Rice Bar */
+.rice-card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border);border-top:3px solid var(--success)}
+.rice-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.rice-value{font-size:18px;font-weight:700;color:var(--success)}
+.rice-detail{font-size:12px;color:var(--text2);margin:4px 0 8px}
+.rice-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.rice-bar-fill{height:100%;background:linear-gradient(90deg,var(--success),#84cc16);border-radius:4px;transition:width .6s}
+/* Category Stats */
+.cat-stat{margin-bottom:10px}
+.cat-stat-header{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.cat-stat-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.cat-stat-fill{height:100%;border-radius:3px;transition:width .5s}
+/* Navigation */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;padding:4px 0 env(safe-area-inset-bottom);z-index:100}
+.tab-item{flex:1;text-align:center;padding:6px 0;font-size:10px;color:var(--text2);cursor:pointer;transition:.3s;border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab-item .tab-icon{font-size:20px}
+.tab-item.active{color:var(--primary);font-weight:600}
+.tab-item.active .tab-icon{transform:scale(1.1)}
+/* Month Selector */
+.month-bar{display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.month-bar::-webkit-scrollbar{display:none}
+.month-chip{padding:6px 14px;border-radius:16px;font-size:13px;white-space:nowrap;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:.3s;flex-shrink:0}
+.month-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* Section */
+.section-title{font-size:15px;font-weight:700;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+/* Detail sections */
+.detail-card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid var(--border)}
+.detail-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.detail-item:last-child{border-bottom:none}
+.detail-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detail-item .amt{font-weight:600;flex-shrink:0;margin-left:8px}
+.detail-item .pct{font-size:11px;color:var(--text2);flex-shrink:0;width:40px;text-align:right}
+/* Chart containers */
+.chart-box{width:100%;height:300px;margin-bottom:12px}
+.chart-box-tall{height:400px}
+/* Hidden */
+.hidden{display:none!important}
+/* Toast */
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;z-index:999;max-width:90%;opacity:0;transition:opacity .3s;pointer-events:none;max-height:60vh;overflow-y:auto;white-space:pre-wrap;text-align:left;line-height:1.5}
+.toast.show{opacity:1}
+/* Debug panel */
+.debug-panel{display:none;margin-top:12px;padding:10px;background:#1e293b;color:#8bff8b;border-radius:10px;font-size:11px;font-family:monospace;max-height:200px;overflow-y:auto;white-space:pre-wrap;line-height:1.5}
+/* Guide */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-content{background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal-content h3{font-size:16px;font-weight:700;margin-bottom:12px}
+.modal-content .close-modal{float:right;font-size:20px;background:none;border:none;color:var(--text2);cursor:pointer}
+.guide-step{padding:12px;background:rgba(0,0,0,.03);border-radius:12px;margin-bottom:10px;border-left:4px solid var(--primary);font-size:13px;line-height:1.6}
+.guide-step b{color:var(--primary)}
+.platform-icon{font-size:24px;vertical-align:middle;margin-right:4px}
+.empty-state{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-actions">
+    <button class="header-btn" onclick="toggleGuide()" title="获取账单指南">❓</button>
+    <button class="header-btn" onclick="toggleTheme()" title="切换主题">🌓</button>
+  </div>
+  <h1>🐱 MoneyLens</h1>
+  <p>跨平台账单分析 · 消费行为洞察</p>
+</div>
+
+<div class="container" id="app">
+  <!-- Upload View -->
+  <div id="viewUpload">
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📂</div>
+      <h3>上传账单文件</h3>
+      <p>支持微信 .xlsx / 支付宝 .csv</p>
+      <div class="file-info" id="fileInfo"></div>
+      <input type="file" id="fileInput" multiple accept=".csv,.xlsx,.xls" hidden onchange="onFilesSelected(this.files)">
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="toggle-row">
+        <span class="toggle-label">🔒 隐私脱敏</span>
+        <button class="toggle on" id="privacyToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">➕ 追加导入（保留已有数据）</span>
+        <button class="toggle" id="appendToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">🌙 深色模式</span>
+        <button class="toggle" id="darkToggle" onclick="toggleTheme();this.classList.toggle('on')"></button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnAnalyze" disabled onclick="startAnalysis()">🚀 开始分析</button>
+
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <div style="font-size:14px;color:var(--text2)">正在解析分析账单数据...</div>
+    </div>
+
+    <!-- Help text -->
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text2)">
+      <span>📱 数据仅存于本地，不会上传到服务器</span>
+    </div>
+    <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--text2);cursor:pointer" onclick="showDebug()">🔧 点此查看调试日志</div>
+    <div class="debug-panel" id="debugPanel"></div>
+  </div>
+
+  <!-- Dashboard View -->
+  <div id="viewDashboard" class="hidden">
+    <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px">
+      <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="exportData()">📥 导出</button>
+      <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="shareData()">📤 分享</button>
+      <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="resetApp()">📤 重新上传</button>
+    </div>
+    <!-- Month selector -->
+    <div class="month-bar" id="monthBar"></div>
+
+    <!-- KPI Grid -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Cat Advisor -->
+    <div id="catAdvisor"></div>
+
+    <!-- Rice Converter -->
+    <div id="riceCard"></div>
+
+    <!-- Category Breakdown -->
+    <div class="section-title">📊 支出分类</div>
+    <div class="card" id="categoryStats"></div>
+
+    <!-- Charts Section -->
+    <div class="section-title">📈 图表分析</div>
+    <div id="chartTabs"></div>
+    <div id="chartContainer" style="margin-bottom:12px"></div>
+  </div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar hidden" id="tabBar">
+  <button class="tab-item active" data-view="dashboard" onclick="switchView('dashboard')">
+    <span class="tab-icon">📊</span> 看板
+  </button>
+  <button class="tab-item" data-view="charts" onclick="switchView('charts')">
+    <span class="tab-icon">📈</span> 图表
+  </button>
+  <button class="tab-item" data-view="details" onclick="switchView('details')">
+    <span class="tab-icon">📋</span> 明细
+  </button>
+  <button class="tab-item" data-view="upload" onclick="switchView('upload')">
+    <span class="tab-icon">📤</span> 上传
+  </button>
+</div>
+
+<!-- Guide Modal -->
+<div class="modal-overlay" id="guideModal">
+  <div class="modal-content">
+    <button class="close-modal" onclick="toggleGuide()">✕</button>
+    <h3>📖 获取账单指南</h3>
+    <div class="guide-step">
+      <span class="platform-icon">💙</span><b>支付宝</b><br>
+      打开支付宝 → 「我的」→「账单」→ 右上角「···」→「开具交易流水证明」→「用于个人对账」→ 选择时间 → 下载 .csv
+    </div>
+    <div class="guide-step" style="border-left-color:#22c55e">
+      <span class="platform-icon">💚</span><b>微信支付</b><br>
+      微信 → 「我」→「服务」→「钱包」→「账单」→「常见问题」→「下载账单」→「用于个人对账」→ 输入邮箱 → 解压后上传 .xlsx
+    </div>
+    <div class="guide-step" style="border-left-color:#f59e0b">
+      <b>🔒 隐私说明</b><br>
+      所有数据仅在浏览器本地处理，<b>不会上传任何服务器</b>。开启隐私脱敏后商家名称会部分隐藏。
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 0. CDN FALLBACK
+// ============================================================
+(function() {
+  // If libraries didn't load, try fallback CDNs
+  const fallbacks = [];
+  if (typeof XLSX === 'undefined') {
+    fallbacks.push('https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js');
+  }
+  if (typeof echarts === 'undefined') {
+    fallbacks.push('https://unpkg.com/echarts@5.5.0/dist/echarts.min.js');
+  }
+  function tryFallback(urls) {
+    if (urls.length === 0) return;
+    const s = document.createElement('script');
+    s.src = urls[0];
+    s.onload = () => mlLog('Fallback CDN loaded: ' + urls[0].slice(0, 40));
+    s.onerror = () => tryFallback(urls.slice(1));
+    document.head.appendChild(s);
+  }
+  if (fallbacks.length > 0) {
+    mlLog('CDN fallback needed for:', fallbacks.map(u => u.slice(0, 30)).join(', '));
+    setTimeout(() => tryFallback(fallbacks), 500);
+  }
+})();
+
+// ============================================================
+// 1. DATA PARSERS
+// ============================================================
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  // Find header line (look in first 40 lines)
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 40); i++) {
+    const line = lines[i].trim();
+    if (line.includes('交易时间') && line.includes('金额')) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) return { records: null, reason: '未找到表头行(交易时间+金额)' };
+  // Parse headers
+  const rawHeader = lines[headerIdx];
+  const headers = rawHeader.split(',').map(h => h.trim());
+  const colMap = {};
+  headers.forEach((h, i) => {
+    if (h.includes('交易时间')) colMap.time = i;
+    if (h.includes('收/支') || h.includes('收支')) colMap.type = i;
+    if (h.includes('金额')) colMap.amount = i;
+    if (h.includes('对方')) colMap.target = i;
+    if (h.includes('商品')) colMap.product = i;
+  });
+  if (colMap.time === undefined || colMap.amount === undefined) return { records: null, reason: '缺少必要列(交易时间/金额)' };
+  const records = [];
+  let badRows = 0;
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // Skip separator lines (all dashes)
+    if (/^[-=]{5,}$/.test(line)) continue;
+    // Handle quoted CSV properly: split by comma but not inside quotes
+    const parts = smartCSVSplit(line);
+    if (parts.length <= Math.max(...Object.values(colMap))) { badRows++; continue; }
+    try {
+      const type = (parts[colMap.type] || '').trim();
+      if (!type.includes('支出') && !type.includes('收入')) continue;
+      const amtStr = parts[colMap.amount].replace(/[^-\d.]/g, '');
+      const amount = parseFloat(amtStr);
+      if (isNaN(amount) || Math.abs(amount) <= 0) continue;
+      records.push({
+        time: parts[colMap.time].trim(),
+        target: colMap.target !== undefined ? parts[colMap.target].trim() : '',
+        product: colMap.product !== undefined ? parts[colMap.product].trim() : '',
+        amount: Math.abs(amount),
+        type: type.includes('收入') ? '收入' : '支出',
+        platform: '支付宝'
+      });
+    } catch(e) { badRows++; }
+  }
+  mlLog(`CSV解析: 共${records.length}条有效记录, ${badRows}行跳过`);
+  return { records, reason: null };
+}
+
+// Handle CSV with possible quoted fields (e.g. "text, with comma")
+function smartCSVSplit(line) {
+  const result = [];
+  let current = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuote = !inQuote; continue; }
+    if (ch === ',' && !inQuote) { result.push(current); current = ''; continue; }
+    current += ch;
+  }
+  result.push(current);
+  return result;
+}
+
+function parseWeChat(buffer) {
+  if (typeof XLSX === 'undefined') return { records: null, reason: 'XLSX库未加载(网络问题)' };
+  try {
+    const wb = XLSX.read(buffer, {type:'array', codepage:65001, cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+    if (!data || data.length === 0) return { records: null, reason: 'Excel为空' };
+    mlLog(`XLSX读取: ${data.length}行`);
+    // Find header row
+    let headerRow = -1;
+    for (let i = 0; i < Math.min(data.length, 40); i++) {
+      const row = data[i];
+      if (!row || !Array.isArray(row)) continue;
+      const rowStr = row.map(String).join(' ').trim();
+      if (rowStr.includes('交易时间') && rowStr.includes('金额')) { headerRow = i; break; }
+    }
+    if (headerRow < 0) return { records: null, reason: '未找到表头行' };
+    mlLog(`表头在第${headerRow}行`);
+    const headers = data[headerRow].map(h => String(h).trim());
+    const colMap = {};
+    headers.forEach((h, i) => {
+      if (h.includes('时间')) colMap.time = i;
+      if (h.includes('收/支') || h.includes('收支')) colMap.type = i;
+      if (h.includes('金额')) colMap.amount = i;
+      if (h.includes('对方')) colMap.target = i;
+      if (h.includes('商品')) colMap.product = i;
+    });
+    if (colMap.time === undefined || colMap.amount === undefined) return { records: null, reason: '缺少必要列' };
+    mlLog(`列映射:`, JSON.stringify(colMap));
+    const records = [];
+    let emptyRows = 0, skippedRows = 0;
+    for (let i = headerRow + 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row || !Array.isArray(row) || row.length === 0) { emptyRows++; continue; }
+      if (row.length <= Math.max(...Object.values(colMap))) { skippedRows++; continue; }
+      let typeStr = '';
+      try { typeStr = String(row[colMap.type] || '').trim(); } catch(e) { skippedRows++; continue; }
+      if (!typeStr.includes('支出') && !typeStr.includes('收入')) { skippedRows++; continue; }
+      let rawAmt;
+      try {
+        const val = row[colMap.amount];
+        if (typeof val === 'number') { rawAmt = val; }
+        else { rawAmt = parseFloat(String(val || '0').replace(/[￥¥,]/g, '').trim()); }
+      } catch(e) { skippedRows++; continue; }
+      if (isNaN(rawAmt) || rawAmt <= 0) { skippedRows++; continue; }
+      records.push({
+        time: String(row[colMap.time] || '').trim(),
+        target: colMap.target !== undefined ? String(row[colMap.target] || '').trim() : '',
+        product: colMap.product !== undefined ? String(row[colMap.product] || '').trim() : '',
+        amount: rawAmt,
+        type: typeStr.includes('收入') ? '收入' : '支出',
+        platform: '微信'
+      });
+    }
+    mlLog(`微信解析: ${records.length}条, 跳过${emptyRows}空行+${skippedRows}无效行`);
+    return { records, reason: null };
+  } catch(e) {
+    mlLog('XLSX解析异常:', e.message);
+    return { records: null, reason: e.message };
+  }
+}
+
+// Read file with fallback for older browsers
+function readFileBuffer(file) {
+  return new Promise((resolve, reject) => {
+    if (file.arrayBuffer) {
+      file.arrayBuffer().then(resolve).catch(err => {
+        // Fallback to FileReader
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = e => reject(e.target.error);
+        reader.readAsArrayBuffer(file);
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = e => reject(e.target.error);
+      reader.readAsArrayBuffer(file);
+    }
+  });
+}
+
+// Try multiple encodings and return the best result
+function decodeText(buffer) {
+  const results = [];
+  // Try GBK first (Alipay's default)
+  try {
+    const t = new TextDecoder('gbk', {fatal:false}).decode(buffer);
+    // Check if it looks like Chinese CSV (has recognizable characters)
+    if (t.includes('交易时间') || t.includes('支出') || t.includes('金额') || t.includes('支付宝')) {
+      return { text: t, encoding: 'gbk' };
+    }
+    results.push({ text: t, encoding: 'gbk-score', score: (t.match(/[一-鿿]/g) || []).length });
+  } catch(e) {}
+  // Try UTF-8
+  try {
+    const t = new TextDecoder('utf-8', {fatal:false}).decode(buffer);
+    if (t.includes('交易时间') || t.includes('金额') || t.includes('支付宝') || t.includes('微信')) {
+      return { text: t, encoding: 'utf-8' };
+    }
+    results.push({ text: t, encoding: 'utf-8-score', score: (t.match(/[一-鿿]/g) || []).length });
+  } catch(e) {}
+  // Try UTF-8 with BOM skip
+  try {
+    const t = new TextDecoder('utf-8', {fatal:false}).decode(buffer.slice(3));
+    results.push({ text: t, encoding: 'utf-8-bom', score: (t.match(/[一-鿿]/g) || []).length });
+  } catch(e) {}
+  // Return the one with most Chinese characters
+  results.sort((a, b) => (b.score || 0) - (a.score || 0));
+  if (results.length > 0) {
+    mlLog(`编码检测: 选择${results[0].encoding}, 含${results[0].score}中文字符`);
+    return { text: results[0].text, encoding: results[0].encoding };
+  }
+  // Last resort: try as-is
+  return { text: new TextDecoder('utf-8', {fatal:false}).decode(buffer), encoding: 'fallback' };
+}
+
+// ============================================================
+// 2. CLASSIFIER
+// ============================================================
+
+const CATEGORY_MAP = {
+  '交通出行': {
+    '高铁火车': ['铁路','12306','高铁','中铁','火车票','火车站'],
+    '打车租车': ['滴滴','打车','高德','曹操','T3','花小猪','出租车','快车'],
+    '公交地铁': ['地铁','公交','轨道交通','公共交通','扫码乘车','巴士'],
+    '共享单车': ['共享单车','哈啰','美团单车','青桔','单车'],
+    '自驾车费': ['加油站','油费','停车费','ETC','充电桩']
+  },
+  '网购消费': {
+    '京东': ['京东','JD.COM','京东商城'],
+    '淘宝天猫': ['淘宝','天猫','闲鱼','Tmall','Taobao'],
+    '拼多多': ['拼多多','Pinduoduo','拼多多平台商户'],
+    '其他电商': ['唯品会','得物','小红书','苏宁易购','国美'],
+    '数码电器': ['小米','华为','苹果','OPPO','VIVO','电器']
+  },
+  '餐饮美食': {
+    '外卖点餐': ['美团外卖','饿了么','外卖','点餐','送餐'],
+    '甜品饮品': ['益禾堂','蜜雪冰城','瑞幸','星巴克','奶茶','咖啡','茶饮','饮品'],
+    '快餐简餐': ['肯德基','麦当劳','德克士','华莱士','汉堡','快餐'],
+    '中餐正餐': ['饭店','餐厅','酒楼','餐馆','火锅','烧烤','中餐'],
+    '便利零食': ['便利店','超市','零食','小卖部','711','全家']
+  },
+  '休闲娱乐': {
+    '游戏充值': ['腾讯游戏','网易游戏','米哈游','Steam','游戏充值','游戏道具'],
+    '会员订阅': ['视频会员','网易云','Bilibili','腾讯视频','爱奇艺','优酷','芒果TV'],
+    '电影演出': ['电影票','电影院','演出','演唱会','话剧','音乐节'],
+    '运动健身': ['健身房','瑜伽','游泳','羽毛球','篮球','足球'],
+    'AppStore': ['App Store','Apple Store','苹果商店','AppStore']
+  },
+  '生活服务': {
+    '通讯缴费': ['话费','充值','电信','移动','联通','中国电信','中国移动'],
+    '水电燃气': ['电费','水费','燃气费','物业费','取暖费'],
+    '服饰鞋包': ['服装','鞋子','包包','配饰','手表','眼镜'],
+    '美容美发': ['理发','美容','美甲','护肤','化妆品'],
+    '维修回收': ['爱回收','回收','维修','手机维修','电器维修']
+  },
+  '教育培训': {
+    '学校缴费': ['兰州大学','大学','学校','学费','教材费','住宿费'],
+    '在线课程': ['课程','培训','教育','学习','考试','证书'],
+    '书籍文具': ['书店','图书','教材','文具','笔记本'],
+    '技能培训': ['编程','设计','外语','驾照','职业技能']
+  },
+  '医疗健康': {
+    '医院药店': ['医院','药店','医疗','健康','体检','医保','药品'],
+    '保健用品': ['保健品','医疗器械','口罩','消毒用品']
+  },
+  '理财转账': {
+    '理财产品': ['理财','基金','股票','证券','余额宝','零钱通'],
+    '转账红包': ['转账','红包','微信红包','支付宝转账','AA收款'],
+    '保险费用': ['保险','保费','车险','人寿保险']
+  }
+};
+
+function classify(text) {
+  const t = text.toLowerCase();
+  if (t.includes('兰州大学')) return ['教育培训','学校缴费'];
+  if (t.includes('爱回收')) return ['生活服务','维修回收'];
+  if (t.includes('app store') || t.includes('apple store')) return ['休闲娱乐','AppStore'];
+  for (const [mainCat, subs] of Object.entries(CATEGORY_MAP)) {
+    for (const [subCat, kws] of Object.entries(subs)) {
+      for (const kw of kws) {
+        if (t.includes(kw.toLowerCase())) return [mainCat, subCat];
+      }
+    }
+  }
+  return ['其他','未分类'];
+}
+
+// ============================================================
+// 3. DATA PROCESSOR
+// ============================================================
+
+let allRecords = [];
+let allMonths = [];
+let currentMonth = '总计';
+let kpiCache = {};
+
+function processRecords(records) {
+  const result = [];
+  for (const r of records) {
+    let t = new Date(r.time);
+    if (isNaN(t.getTime())) {
+      // Try parsing various formats
+      t = new Date(r.time.replace(/-/g,'/'));
+      if (isNaN(t.getTime())) continue;
+    }
+    const text = r.target + r.product;
+    const [mainCat, subCat] = classify(text);
+    const privacy = document.getElementById('privacyToggle').classList.contains('on');
+    const yearMonth = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0');
+    result.push({
+      time: t,
+      target: r.target,
+      product: r.product,
+      amount: r.amount,
+      type: r.type || '支出',
+      platform: r.platform,
+      date: t.toISOString().slice(0,10),
+      amount_abs: r.amount,
+      main_category: mainCat,
+      sub_category: subCat,
+      year_month: yearMonth,
+      hour: t.getHours(),
+      target_display: privacy && r.target.length > 1 ? r.target[0] + '**' : r.target
+    });
+  }
+  // Dedup
+  const seen = new Set();
+  const deduped = [];
+  for (const r of result) {
+    const key = r.time.toISOString() + '|' + r.target + '|' + r.amount_abs;
+    if (!seen.has(key)) { seen.add(key); deduped.push(r); }
+  }
+  return deduped;
+}
+
+function calculateKPIs(records) {
+  const months = {};
+  for (const r of records) {
+    if (r.type !== '支出') continue;
+    if (!months[r.year_month]) months[r.year_month] = [];
+    months[r.year_month].push(r);
+  }
+  const monthlyKPIs = {};
+  for (const [ym, recs] of Object.entries(months)) {
+    const total = recs.reduce((s,r) => s + r.amount_abs, 0);
+    const food = recs.filter(r => r.main_category === '餐饮美食').reduce((s,r) => s + r.amount_abs, 0);
+    const dates = [...new Set(recs.map(r => r.date))].sort();
+    const days = dates.length || 1;
+    const engle = total > 0 ? (food / total * 100) : 0;
+    const nightCount = recs.filter(r => r.hour >= 22 || r.hour <= 4).length;
+    const isNight = nightCount > recs.length * 0.2;
+    let persona = '稳健派';
+    if (engle > 60) persona = '食堂战神';
+    else if (isNight) persona = '深夜购物狂';
+    else if (total > 5000) persona = '精致利己';
+    monthlyKPIs[ym] = {
+      total_expense: total,
+      total_expense_str: total.toFixed(2),
+      daily_avg: total / days,
+      engle: engle.toFixed(1) + '%',
+      engle_val: engle,
+      transaction_count: recs.length,
+      max_spend: Math.max(...recs.map(r => r.amount_abs)),
+      persona_type: persona,
+      is_night_owl: isNight,
+      days: days
+    };
+  }
+  return monthlyKPIs;
+}
+
+function calculateTotalKPI(records, monthlyKPIs) {
+  const expenseRecords = records.filter(r => r.type === '支出');
+  if (expenseRecords.length === 0) return null;
+  const total = expenseRecords.reduce((s,r) => s + r.amount_abs, 0);
+  const food = expenseRecords.filter(r => r.main_category === '餐饮美食').reduce((s,r) => s + r.amount_abs, 0);
+  const dates = [...new Set(expenseRecords.map(r => r.date))].sort();
+  const days = dates.length || 1;
+  const engle = total > 0 ? (food / total * 100) : 0;
+  const nightCount = expenseRecords.filter(r => r.hour >= 22 || r.hour <= 4).length;
+  const isNight = nightCount > expenseRecords.length * 0.2;
+  let persona = '稳健派';
+  if (engle > 60) persona = '食堂战神';
+  else if (isNight) persona = '深夜购物狂';
+  else if (total > 15000) persona = '精致利己';
+  return {
+    total_expense: total,
+    total_expense_str: total.toFixed(2),
+    daily_avg: total / days,
+    engle: engle.toFixed(1) + '%',
+    engle_val: engle,
+    transaction_count: expenseRecords.length,
+    max_spend: Math.max(...expenseRecords.map(r => r.amount_abs)),
+    persona_type: persona,
+    is_night_owl: isNight,
+    days: days,
+    months: Object.keys(monthlyKPIs).length
+  };
+}
+
+// ============================================================
+// 4. SURVIVAL CONVERTER
+// ============================================================
+
+function calcSurvival(totalExpense, monthlyAvg) {
+  const RICE_PRICE = 2.6;
+  const LABOR_RATE = 20.0;
+  const avg = monthlyAvg > 0 ? monthlyAvg : 3000;
+  const workHours = totalExpense / LABOR_RATE;
+  const workDays = workHours / 8;
+  const riceJin = totalExpense / RICE_PRICE;
+  const riceTons = riceJin / 2000;
+  const survivalDays = Math.floor(riceJin);
+  const ratio = avg > 0 ? ((totalExpense / avg) - 1) * 100 : 0;
+  let mood = 'calm';
+  if (ratio > 20) mood = 'shocked';
+  else if (ratio < -10) mood = 'proud';
+  let spaceDesc = '粮仓空空如也';
+  if (riceJin >= 2000) spaceDesc = '足以装满一辆小型皮卡车';
+  else if (riceJin >= 500) spaceDesc = '足以堆满实验室的一面墙';
+  else if (riceJin >= 50) spaceDesc = `约 ${(riceJin/50).toFixed(1)} 袋大米`;
+  else if (riceJin > 0) spaceDesc = '约 1 袋标准大米';
+  return { workHours, workDays, riceJin, riceTons, survivalDays, spaceDesc, mood, ratio_pct: ratio, avg_ref: avg };
+}
+
+// ============================================================
+// 5. CAT ADVISOR
+// ============================================================
+
+function generateAdvice(kpi, survival, isTotal) {
+  const total = kpi.total_expense;
+  const engleVal = kpi.engle_val || 0;
+  const persona = kpi.persona_type;
+  const isNight = kpi.is_night_owl;
+  const riceJin = survival.rice_jin || 0;
+  const ratio = survival.ratio_pct || 0;
+  const timeDesc = isTotal ? '总计' : '本月';
+  const details = [];
+
+  if (persona === '深夜购物狂') details.push('🌙 深夜守望者：凌晨的订单是感性的冲动，早上的账单是理性的痛苦。猫咪怀疑你是在梦游剁手！');
+  else if (persona === '食堂战神') details.push('🛡️ 食堂战神：恩格尔系数极高，你是在用胃支撑学校的基建吗？多吃鱼少吃草，喵~');
+  else if (persona === '精致利己') details.push('💅 精致利己：你在非刚需上的投入不菲，猫咪觉得你更爱面子而不是肚子。');
+  else details.push('😼 稳健派：消费理性，支出在猫掌掌控之中，搬砖人继续加油。');
+
+  if (isTotal) {
+    if (total > 15000) details.push('💣 消费炸弹：总支出已突破15000元警戒线，猫咪理财官受到了惊吓！');
+    else if (total < 5000) details.push('💰 省钱达人：总支出控制得很好，猫咪为你点赞！');
+  } else {
+    if (total > 4500) details.push('💣 消费炸弹：本月支出已突破警戒线！');
+    else if (total < 1500) details.push('💰 省钱达人：本月支出控制得很好！');
+  }
+
+  if (engleVal > 60) details.push('🍚 粮食警告：恩格尔系数过高，你是在吃土吗？');
+  else if (engleVal < 20 && total > 1000) details.push('🍽️ 品质生活：恩格尔系数较低，生活品质不错~');
+
+  if (isNight) details.push('🌃 夜猫子：深夜消费活跃，早点睡觉能省不少钱！');
+
+  if (riceJin > 3000) details.push(`🍚 粮食警告：你总共挥霍了 ${riceJin.toFixed(0)} 斤大米，够全村流浪猫吃一个月了！`);
+  else if (riceJin > 1000) details.push(`🍚 粮食警告：你这段时间挥霍了 ${riceJin.toFixed(0)} 斤大米，够流浪猫吃一周了！`);
+
+  if (details.length === 0) details.push('表现平平，没有惊喜也没有惊吓。乖乖去赚小鱼干吧。');
+
+  let summary;
+  if (isTotal) {
+    if (ratio > 30) summary = `震惊！总计支出超出平均线 ${ratio.toFixed(0)}%！`;
+    else if (ratio < -15) summary = `欣慰！总计支出节省了 ${Math.abs(ratio).toFixed(0)}%！`;
+    else summary = '情绪稳定。总支出在猫掌掌控之中。';
+  } else {
+    if (ratio > 20) summary = `震惊！本月支出超出平均线 ${ratio.toFixed(0)}%！`;
+    else if (ratio < -10) summary = `欣慰！本月成功比平时节省了 ${Math.abs(ratio).toFixed(0)}%！`;
+    else summary = '情绪稳定。本月支出在掌控之中。';
+  }
+  return { persona, summary, details };
+}
+
+// ============================================================
+// 6. UTILITY
+// ============================================================
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  const dbg = document.getElementById('debugPanel');
+  t.textContent = msg.replace(/\n/g, ' | ');
+  t.classList.add('show');
+  // Also show in debug panel
+  if (msg.length > 60) {
+    dbg.textContent = window.__ML_DEBUG.join('\n');
+    dbg.style.display = 'block';
+  }
+  setTimeout(() => { t.classList.remove('show'); }, 4000);
+}
+
+function showDebug() {
+  const dbg = document.getElementById('debugPanel');
+  dbg.textContent = window.__ML_DEBUG.join('\n');
+  dbg.style.display = dbg.style.display === 'none' ? 'block' : 'none';
+}
+
+function formatMoney(v) { return v.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+const CAT_COLORS = ['#4361ee','#3f37c9','#4895ef','#4cc9f0','#f72585','#b5179e','#7209b7','#560bad','#f59e0b','#22c55e'];
+
+// ============================================================
+// 7. UI RENDERERS
+// ============================================================
+
+function renderMonthBar(months, selected) {
+  const bar = document.getElementById('monthBar');
+  let html = '<button class="month-chip' + (selected === '总计' ? ' active' : '') + '" data-m="总计">📊 总计</button>';
+  for (const m of months) {
+    html += '<button class="month-chip' + (selected === m ? ' active' : '') + '" data-m="' + m + '">' + m + '</button>';
+  }
+  bar.innerHTML = html;
+  bar.querySelectorAll('.month-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      currentMonth = el.dataset.m;
+      renderDashboard();
+    });
+  });
+}
+
+function renderKPI(kpi, isTotal, incomeTotal) {
+  const grid = document.getElementById('kpiGrid');
+  const e = kpi.engle_val !== undefined ? kpi.engle_val : parseFloat(kpi.engle);
+  let cards = '';
+  if (isTotal) {
+    cards = `
+      <div class="kpi-card"><div class="label">📊 总支出</div><div class="value" style="color:var(--danger)">¥${kpi.total_expense_str}</div></div>
+      <div class="kpi-card"><div class="label">💰 总收入</div><div class="value" style="color:var(--success)">¥${incomeTotal.toFixed(2)}</div></div>
+      <div class="kpi-card"><div class="label">📅 日均支出</div><div class="value" style="color:var(--primary)">¥${kpi.daily_avg.toFixed(2)}</div></div>
+      <div class="kpi-card"><div class="label">📆 统计周期</div><div class="value" style="color:var(--warning)">${kpi.months} 个月</div></div>
+      <div class="kpi-card"><div class="label">🍚 恩格尔系数</div><div class="value" style="color:var(--success)">${kpi.engle}</div><div class="sub">食品占比</div></div>
+      <div class="kpi-card"><div class="label">💳 最大单笔</div><div class="value" style="color:var(--danger)">¥${kpi.max_spend.toFixed(2)}</div></div>
+    `;
+  } else {
+    const monthIncome = allRecords.filter(r => r.type === '收入' && r.year_month === currentMonth).reduce((s,r) => s + r.amount_abs, 0);
+    cards = `
+      <div class="kpi-card"><div class="label">💰 本月支出</div><div class="value" style="color:var(--danger)">¥${kpi.total_expense_str}</div></div>
+      <div class="kpi-card"><div class="label">💳 本月收入</div><div class="value" style="color:var(--success)">¥${formatMoney(monthIncome)}</div></div>
+      <div class="kpi-card"><div class="label">🍚 恩格尔系数</div><div class="value" style="color:var(--success)">${kpi.engle}</div><div class="sub">食品占比</div></div>
+      <div class="kpi-card"><div class="label">📊 交易笔数</div><div class="value" style="color:var(--primary)">${kpi.transaction_count}</div></div>
+    `;
+  }
+  grid.innerHTML = cards;
+}
+
+function renderCatCard(advice, mood) {
+  const el = document.getElementById('catAdvisor');
+  const moodEmoji = mood === 'shocked' ? '🙀' : mood === 'proud' ? '😻' : '😼';
+  const shakeClass = mood === 'shocked' ? ' shake' : '';
+  el.innerHTML = `
+    <div class="cat-card">
+      <div class="cat-header">
+        <div class="cat-avatar${shakeClass}">${moodEmoji}</div>
+        <div style="flex:1">
+          <div class="cat-name">🐱 AI猫猫理财官</div>
+          <div class="cat-badges">
+            <span class="cat-badge" style="color:var(--primary);border-color:var(--primary)">${advice.persona}</span>
+          </div>
+        </div>
+      </div>
+      <div class="cat-summary" style="color:${mood === 'shocked' ? 'var(--danger)' : mood === 'proud' ? 'var(--success)' : 'var(--text)'}">${advice.summary}</div>
+      <div class="cat-detail" id="catDetail"></div>
+    </div>
+  `;
+  // Typewriter effect
+  const container = document.getElementById('catDetail');
+  const fullText = advice.details.join('\n');
+  container.textContent = '';
+  let i = 0;
+  function type() {
+    if (i < fullText.length) {
+      container.textContent += fullText[i];
+      i++;
+      setTimeout(type, 20);
+    }
+  }
+  setTimeout(type, 200);
+}
+
+function renderRiceCard(survival) {
+  const el = document.getElementById('riceCard');
+  const pct = Math.min(survival.riceJin / 5, 100);
+  el.innerHTML = `
+    <div class="rice-card">
+      <div class="rice-title">🍚 生存基石：大米换算</div>
+      <div class="rice-value">${survival.riceJin.toFixed(1)} 斤</div>
+      <div class="rice-detail">🧱 搬砖 ${survival.workHours.toFixed(1)} 小时 (${survival.workDays.toFixed(1)} 天) · 重 ${survival.riceTons.toFixed(2)} 吨 · ${survival.spaceDesc}</div>
+      <div class="rice-bar"><div class="rice-bar-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px">🍚 足够撑 <b>${survival.survivalDays}</b> 天</div>
+    </div>
+  `;
+}
+
+function renderCategoryStats(expenseRecords, totalExpense) {
+  const el = document.getElementById('categoryStats');
+  if (expenseRecords.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">暂无数据</div>';
+    return;
+  }
+  const cats = {};
+  for (const r of expenseRecords) {
+    cats[r.main_category] = (cats[r.main_category] || 0) + r.amount_abs;
+  }
+  const sorted = Object.entries(cats).sort((a,b) => b[1] - a[1]);
+  let html = '';
+  sorted.forEach(([cat, amt], i) => {
+    const pct = totalExpense > 0 ? (amt / totalExpense * 100) : 0;
+    const color = CAT_COLORS[i % CAT_COLORS.length];
+    html += `
+      <div class="cat-stat">
+        <div class="cat-stat-header"><span>${cat}</span><span>¥${formatMoney(amt)} (${pct.toFixed(1)}%)</span></div>
+        <div class="cat-stat-bar"><div class="cat-stat-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+    `;
+  });
+  el.innerHTML = html;
+}
+
+function renderDetailList(records) {
+  const container = document.getElementById('chartContainer');
+  const expenseRecords = records.filter(r => r.type === '支出');
+  // Merchant Top
+  const merchants = {};
+  for (const r of expenseRecords) {
+    merchants[r.target_display] = (merchants[r.target_display] || 0) + r.amount_abs;
+  }
+  const topMerchants = Object.entries(merchants).sort((a,b) => b[1] - a[1]).slice(0, 20);
+  // Sub category
+  const subCats = {};
+  for (const r of expenseRecords) {
+    const key = r.main_category + ' > ' + r.sub_category;
+    subCats[key] = (subCats[key] || 0) + r.amount_abs;
+  }
+  const topSubCats = Object.entries(subCats).sort((a,b) => b[1] - a[1]).slice(0, 20);
+  const total = expenseRecords.reduce((s,r) => s + r.amount_abs, 0);
+
+  let html = '<div class="detail-card"><div class="card-title" style="font-size:14px">🏪 Top 消费商家</div>';
+  topMerchants.forEach(([name, amt]) => {
+    const pct = total > 0 ? (amt/total*100) : 0;
+    html += `<div class="detail-item"><span class="name">${name}</span><span class="amt">¥${formatMoney(amt)}</span><span class="pct">${pct.toFixed(1)}%</span></div>`;
+  });
+  html += '</div>';
+
+  html += '<div class="detail-card"><div class="card-title" style="font-size:14px">📂 分类明细 Top</div>';
+  topSubCats.forEach(([name, amt]) => {
+    const pct = total > 0 ? (amt/total*100) : 0;
+    html += `<div class="detail-item"><span class="name">${name}</span><span class="amt">¥${formatMoney(amt)}</span><span class="pct">${pct.toFixed(1)}%</span></div>`;
+  });
+  html += '</div>';
+
+  // Platform distribution
+  const platforms = {};
+  for (const r of expenseRecords) {
+    platforms[r.platform] = (platforms[r.platform] || 0) + r.amount_abs;
+  }
+  html += '<div class="detail-card"><div class="card-title" style="font-size:14px">📱 平台分布</div>';
+  Object.entries(platforms).forEach(([name, amt]) => {
+    const pct = total > 0 ? (amt/total*100) : 0;
+    html += `<div class="detail-item"><span class="name">${name}</span><span class="amt">¥${formatMoney(amt)}</span><span class="pct">${pct.toFixed(1)}%</span></div>`;
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// 8. CHARTS (ECharts)
+// ============================================================
+
+let chartInstances = {};
+const CHART_TABS = [
+  { id: 'trend', name: '月度趋势', icon: '📈' },
+  { id: 'category', name: '支出结构', icon: '🥧' },
+  { id: 'subcategory', name: '分类排行', icon: '📊' },
+  { id: 'merchant', name: '商家排行', icon: '🏪' },
+  { id: 'sunburst', name: '穿透图', icon: '🔍' },
+  { id: 'sankey', name: '流向图', icon: '🔄' },
+  { id: 'bigspend', name: '大额分布', icon: '💣' },
+  { id: 'calendar', name: '日历热力', icon: '📅' }
+];
+
+function renderChartTabs() {
+  const el = document.getElementById('chartTabs');
+  let html = '<div class="month-bar" style="padding-bottom:8px">';
+  CHART_TABS.forEach(t => {
+    html += `<button class="month-chip${t.id === 'trend' ? ' active' : ''}" data-chart="${t.id}">${t.icon} ${t.name}</button>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('[data-chart]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      el.querySelectorAll('[data-chart]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderChart(btn.dataset.chart);
+    });
+  });
+}
+
+function getFilteredRecords() {
+  if (currentMonth === '总计') return allRecords.filter(r => r.type === '支出');
+  return allRecords.filter(r => r.type === '支出' && r.year_month === currentMonth);
+}
+
+function getMonthlyTrend() {
+  const monthly = {};
+  for (const r of allRecords) {
+    if (r.type !== '支出') continue;
+    monthly[r.year_month] = (monthly[r.year_month] || 0) + r.amount_abs;
+  }
+  const sorted = Object.entries(monthly).sort((a,b) => a[0].localeCompare(b[0]));
+  return { months: sorted.map(s => s[0]), amounts: sorted.map(s => s[1]) };
+}
+
+function renderChart(type) {
+  const container = document.getElementById('chartContainer');
+  container.innerHTML = '<div class="chart-box chart-box-tall" id="chartBox"></div>';
+  const dom = document.getElementById('chartBox');
+  if (chartInstances.main) { chartInstances.main.dispose(); }
+  const chart = echarts.init(dom);
+  chartInstances.main = chart;
+
+  const records = getFilteredRecords();
+  const total = records.reduce((s,r) => s + r.amount_abs, 0);
+
+  const handleResize = () => chart.resize();
+  window.removeEventListener('chartResize', handleResize);
+  window.addEventListener('resize', handleResize);
+
+  switch(type) {
+    case 'trend': renderTrendChart(chart); break;
+    case 'category': renderPieChart(chart, records); break;
+    case 'subcategory': renderSubCategoryChart(chart, records); break;
+    case 'merchant': renderMerchantChart(chart, records); break;
+    case 'sunburst': renderSunburstChart(chart, records); break;
+    case 'sankey': renderSankeyChart(chart, records); break;
+    case 'bigspend': renderBigSpendChart(chart, records); break;
+    case 'calendar': renderCalendarChart(chart, records); break;
+  }
+}
+
+function renderTrendChart(chart) {
+  const trend = getMonthlyTrend();
+  // Also get income trend
+  const incomeMonthly = {};
+  for (const r of allRecords) {
+    if (r.type !== '收入') continue;
+    incomeMonthly[r.year_month] = (incomeMonthly[r.year_month] || 0) + r.amount_abs;
+  }
+  const incomeData = trend.months.map(m => incomeMonthly[m] || 0);
+  chart.setOption({
+    title: { text: '月度收支趋势', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, data: ['支出','收入'], textStyle: {fontSize:11} },
+    grid: { left: '8%', right: '5%', top: '15%', bottom: '18%' },
+    xAxis: { type: 'category', data: trend.months, axisLabel: { rotate: 30, fontSize: 10 } },
+    yAxis: { type: 'value', name: '金额(元)', axisLabel: { fontSize: 10 } },
+    series: [{
+      name: '支出', type: 'bar', data: trend.amounts,
+      itemStyle: { color: '#ef4444', borderRadius: [4,4,0,0] }
+    }, {
+      name: '收入', type: 'bar', data: incomeData,
+      itemStyle: { color: '#22c55e', borderRadius: [4,4,0,0] }
+    }]
+  }, true);
+}
+
+function renderPieChart(chart, records) {
+  const cats = {};
+  for (const r of records) cats[r.main_category] = (cats[r.main_category] || 0) + r.amount_abs;
+  const data = Object.entries(cats).sort((a,b) => b[1]-a[1]).map(([n,v]) => ({name:n, value:Math.round(v*100)/100}));
+  chart.setOption({
+    title: { text: '支出结构', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+    series: [{
+      type: 'pie', radius: ['35%','65%'], center: ['50%','55%'],
+      data: data, label: { fontSize: 11, formatter: '{b}\n{d}%' },
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' } }
+    }]
+  }, true);
+}
+
+function renderSubCategoryChart(chart, records) {
+  const subCats = {};
+  for (const r of records) {
+    const key = r.sub_category;
+    subCats[key] = (subCats[key] || 0) + r.amount_abs;
+  }
+  const data = Object.entries(subCats).sort((a,b) => b[1]-a[1]).slice(0, 15);
+  chart.setOption({
+    title: { text: '子分类 Top 15', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'axis' },
+    grid: { left: '5%', right: '10%', top: '15%', bottom: '12%' },
+    xAxis: { type: 'category', data: data.map(d => d[0]), axisLabel: { rotate: 35, fontSize: 9 } },
+    yAxis: { type: 'value', name: '金额(元)', axisLabel: { fontSize: 10 } },
+    series: [{ type: 'bar', data: data.map(d => d[1]), itemStyle: { color: '#4361ee' } }]
+  }, true);
+}
+
+function renderMerchantChart(chart, records) {
+  const merchants = {};
+  for (const r of records) merchants[r.target_display] = (merchants[r.target_display] || 0) + r.amount_abs;
+  const data = Object.entries(merchants).sort((a,b) => b[1]-a[1]).slice(0, 15);
+  chart.setOption({
+    title: { text: '商家消费排行 Top 15', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'axis' },
+    grid: { left: '5%', right: '10%', top: '15%', bottom: '15%' },
+    xAxis: { type: 'category', data: data.map(d => d[0]), axisLabel: { rotate: 35, fontSize: 9 } },
+    yAxis: { type: 'value', name: '金额(元)', axisLabel: { fontSize: 10 } },
+    series: [{ type: 'bar', data: data.map(d => d[1]), itemStyle: { color: '#f59e0b' } }]
+  }, true);
+}
+
+function renderSunburstChart(chart, records) {
+  const tree = {};
+  for (const r of records) {
+    if (!tree[r.main_category]) tree[r.main_category] = {};
+    if (!tree[r.main_category][r.sub_category]) tree[r.main_category][r.sub_category] = [];
+    tree[r.main_category][r.sub_category].push(r.amount_abs);
+  }
+  const data = Object.entries(tree).map(([cat, subs]) => ({
+    name: cat, children: Object.entries(subs).map(([sub, amts]) => ({
+      name: sub, value: Math.round(amts.reduce((s,a) => s+a, 0)*100)/100
+    }))
+  }));
+  chart.setOption({
+    title: { text: '多级消费穿透', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'item', formatter: '{b}: ¥{c}' },
+    series: [{
+      type: 'sunburst', data: data, radius: ['0%','90%'],
+      label: { rotate: 0, fontSize: 10 },
+      levels: [
+        {},
+        { r0: '0%', r: '35%', label: { fontSize: 11, fontWeight: 'bold' } },
+        { r0: '35%', r: '70%', label: { fontSize: 9 } },
+      ]
+    }]
+  }, true);
+}
+
+function renderSankeyChart(chart, records) {
+  const platforms = {};
+  for (const r of records) {
+    if (!platforms[r.platform]) platforms[r.platform] = {};
+    platforms[r.platform][r.main_category] = (platforms[r.platform][r.main_category] || 0) + r.amount_abs;
+  }
+  const nodes = [];
+  const links = [];
+  const pNames = Object.keys(platforms);
+  const cNames = [...new Set(records.map(r => r.main_category))];
+  pNames.forEach(p => nodes.push({name: '平台:' + p}));
+  cNames.forEach(c => nodes.push({name: '类别:' + c}));
+  for (const [p, cats] of Object.entries(platforms)) {
+    for (const [c, v] of Object.entries(cats)) {
+      links.push({source: '平台:' + p, target: '类别:' + c, value: Math.round(v*100)/100});
+    }
+  }
+  if (links.length === 0) {
+    chart.setOption({title: {text: '无流向数据', left: 'center'}});
+    return;
+  }
+  chart.setOption({
+    title: { text: '消费流向图', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'item', formatter: p => p.data && p.data.source ? `${p.data.source} → ${p.data.target}<br/>¥${p.data.value.toFixed(2)}` : p.name },
+    series: [{
+      type: 'sankey', data: nodes, links: links,
+      layout: 'none', draggable: true, nodeWidth: 15, nodeGap: 8,
+      label: { fontSize: 10 },
+      lineStyle: { opacity: 0.3, curveness: 0.5 }
+    }]
+  }, true);
+}
+
+function renderBigSpendChart(chart, records) {
+  const big = records.filter(r => r.amount_abs > 100).sort((a,b) => b.amount_abs - a.amount_abs).slice(0, 30);
+  if (big.length === 0) {
+    chart.setOption({title: {text: '暂无大额支出 (>100元)', left: 'center'}});
+    return;
+  }
+  const data = big.map(r => ({
+    value: [r.date, r.amount_abs, r.target_display, r.main_category + '/' + r.sub_category]
+  }));
+  chart.setOption({
+    title: { text: '大额支出分布', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { trigger: 'item', formatter: p => {
+      const d = p.data;
+      return `${d[0]}<br/>金额: ¥${d[1].toFixed(2)}<br/>商家: ${d[2]}<br/>分类: ${d[3]}`;
+    }},
+    grid: { left: '8%', right: '5%', top: '15%', bottom: '12%' },
+    xAxis: { type: 'category', data: big.map(r => r.date), axisLabel: { rotate: 45, fontSize: 9 } },
+    yAxis: { type: 'value', name: '金额(元)', axisLabel: { fontSize: 10 } },
+    series: [{
+      type: 'scatter', data: data.map(d => d.value),
+      symbolSize: d => Math.min(40, Math.max(8, d[1]/30)),
+      itemStyle: { color: '#ef4444' }
+    }]
+  }, true);
+}
+
+function renderCalendarChart(chart, records) {
+  const daily = {};
+  for (const r of records) daily[r.date] = (daily[r.date] || 0) + r.amount_abs;
+  const dates = Object.keys(daily).sort();
+  if (dates.length === 0) {
+    chart.setOption({title: {text: '暂无日历数据', left: 'center'}});
+    return;
+  }
+  const data = dates.map(d => [d, Math.round(daily[d]*100)/100]);
+  const maxVal = Math.max(...data.map(d => d[1]));
+  const minDate = dates[0];
+  const maxDate = dates[dates.length-1];
+  chart.setOption({
+    title: { text: '每日支出热力图', left: 'center', textStyle: {fontSize:14} },
+    tooltip: { formatter: p => p.data ? `${p.data[0]}<br/>¥${Number(p.data[1]).toFixed(2)}` : '' },
+    visualMap: { min: 0, max: maxVal, orient: 'horizontal', left: 'center', top: 40, inRange: {color: ['#ebedf0','#9be9a8','#40c463','#30a14e','#216e39']} },
+    calendar: { range: [minDate, maxDate], cellSize: ['auto', 14], dayLabel: {nameMap: 'cn', fontSize: 10}, monthLabel: {nameMap: 'cn', fontSize: 10} },
+    series: [{ type: 'heatmap', coordinateSystem: 'calendar', data: data }]
+  }, true);
+}
+
+// ============================================================
+// ============================================================
+// 9. INDEXEDDB PERSISTENCE
+// ============================================================
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('MoneyLens', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('records')) {
+        db.createObjectStore('records', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function dbSaveRecords(records) {
+  if (!records || records.length === 0) return;
+  const db = await openDB();
+  const tx = db.transaction('records', 'readwrite');
+  const store = tx.objectStore('records');
+  await new Promise((resolve, reject) => {
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+  for (const r of records) {
+    const record = { ...r };
+    record.time = r.time instanceof Date ? r.time.toISOString() : r.time;
+    record.id = record.time + '|' + r.target + '|' + r.amount_abs;
+    store.put(record);
+  }
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbLoadRecords() {
+  const db = await openDB();
+  const tx = db.transaction('records', 'readonly');
+  const store = tx.objectStore('records');
+  const records = await new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  for (const r of records) {
+    r.time = new Date(r.time);
+  }
+  return records;
+}
+
+async function dbClearAll() {
+  const db = await openDB();
+  const tx = db.transaction('records', 'readwrite');
+  const store = tx.objectStore('records');
+  await new Promise((resolve, reject) => {
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ============================================================
+// 10. EXPORT / SHARE
+// ============================================================
+
+function exportData() {
+  if (allRecords.length === 0) { showToast('暂无数据可导出'); return; }
+  const data = {
+    version: '1.0',
+    exportTime: new Date().toISOString(),
+    records: allRecords.map(r => ({
+      time: r.time instanceof Date ? r.time.toISOString() : r.time,
+      target: r.target,
+      product: r.product,
+      amount: r.amount,
+      type: r.type,
+      platform: r.platform,
+      main_category: r.main_category,
+      sub_category: r.sub_category
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ 数据已导出');
+}
+
+async function shareData() {
+  if (allRecords.length === 0) { showToast('暂无数据可分享'); return; }
+  const kpi = kpiCache.total;
+  const text = 'MoneyLens 财务报告\n总支出: ¥' + (kpi ? kpi.total_expense_str : '0.00') + '\n统计 ' + allMonths.length + ' 个月\n消费人格: ' + (kpi ? kpi.persona_type : 'N/A');
+  if (navigator.share) {
+    try { await navigator.share({ title: 'MoneyLens 财务报告', text: text }); } catch(e) {}
+  } else {
+    showToast('📋 分享文本已复制');
+  }
+}
+
+// ============================================================
+// 11. AUTO INIT (Load saved data from IndexedDB)
+// ============================================================
+
+async function initApp() {
+  // Register service worker for PWA offline support
+  if ('serviceWorker' in navigator) {
+    try { await navigator.serviceWorker.register('sw.js'); } catch(e) { mlLog('SW注册失败:', e.message); }
+  }
+  try {
+    const saved = await dbLoadRecords();
+    if (saved && saved.length > 0) {
+      const privacy = document.getElementById('privacyToggle').classList.contains('on');
+      allRecords = processRecords(saved);
+      if (allRecords.length > 0) {
+        const monthlyKPIs = calculateKPIs(allRecords);
+        allMonths = Object.keys(monthlyKPIs).sort().reverse();
+        kpiCache.monthly = monthlyKPIs;
+        kpiCache.total = calculateTotalKPI(allRecords, monthlyKPIs);
+        incomeTotal = allRecords.filter(r => r.type === '收入').reduce((s,r) => s + r.amount_abs, 0);
+        currentMonth = '总计';
+        document.getElementById('tabBar').classList.remove('hidden');
+        mlLog('已从本地恢复 ' + allRecords.length + ' 条记录');
+        renderDashboard();
+        switchView('dashboard');
+        return;
+      }
+    }
+  } catch(e) {
+    mlLog('DB加载错误: ' + e.message);
+  }
+}
+
+// ============================================================
+// 12. MAIN APP
+// ============================================================
+
+let incomeTotal = 0;
+let currentView = 'dashboard';
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.getElementById('viewUpload').classList.toggle('hidden', view !== 'upload');
+  document.getElementById('viewDashboard').classList.toggle('hidden', view === 'upload');
+  if (view === 'dashboard') renderDashboard();
+  else if (view === 'charts') { renderChartTabs(); renderChart('trend'); }
+  else if (view === 'details') renderDetailList(allRecords);
+}
+
+function renderDashboard() {
+  const kpi = currentMonth === '总计' ? kpiCache.total : kpiCache.monthly[currentMonth];
+  if (!kpi) return;
+  const records = currentMonth === '总计' ? allRecords : allRecords.filter(r => r.year_month === currentMonth);
+  const expenseRecords = records.filter(r => r.type === '支出');
+  const totalExpense = expenseRecords.reduce((s,r) => s + r.amount_abs, 0);
+
+  // Calculate monthly average for survival
+  let monthlyAvg = 3000;
+  if (kpiCache.total && kpiCache.total.months > 0) {
+    monthlyAvg = kpiCache.total.total_expense / kpiCache.total.months;
+  }
+
+  const survival = calcSurvival(totalExpense, monthlyAvg);
+  const advice = generateAdvice(kpi, survival, currentMonth === '总计');
+
+  renderMonthBar(allMonths, currentMonth);
+  renderKPI(kpi, currentMonth === '总计', incomeTotal);
+  renderCatCard(advice, survival.mood);
+  renderRiceCard(survival);
+  renderCategoryStats(expenseRecords, totalExpense);
+
+  // Update tab bar text
+  document.querySelectorAll('.tab-item').forEach(t => {
+    t.classList.toggle('active', t.dataset.view === 'dashboard');
+  });
+}
+
+async function startAnalysis() {
+  const files = document.getElementById('fileInput').files;
+  if (files.length === 0) { showToast('请先选择账单文件'); return; }
+
+  document.getElementById('viewUpload').classList.add('hidden');
+  document.getElementById('loader').classList.remove('hidden');
+
+  const timer = setTimeout(() => showToast('正在解析大量数据，请稍候...'), 3000);
+
+  try {
+    const isAppend = document.getElementById('appendToggle').classList.contains('on');
+    const existingRecords = (isAppend && allRecords.length > 0) ? [...allRecords] : [];
+    allRecords = [];
+    const debugInfo = [];
+
+    for (const file of files) {
+      const fname = file.name;
+      const fsize = (file.size / 1024).toFixed(1);
+      mlLog(`处理文件: ${fname} (${fsize}KB)`);
+
+      try {
+        const buffer = await readFileBuffer(file);
+        mlLog(`已读取: ${buffer.byteLength} bytes`);
+
+        let result = null;
+        const ext = fname.split('.').pop().toLowerCase();
+        const isCSV = (ext === 'csv' || fname.includes('支付宝') || fname.includes('alipay'));
+        const isXLSX = (ext === 'xlsx' || ext === 'xls' || fname.includes('微信') || fname.includes('wechat'));
+
+        if (isCSV || isXLSX) {
+          if (isCSV && !isXLSX) {
+            // CSV file
+            const { text, encoding } = decodeText(buffer);
+            mlLog(`CSV编码: ${encoding}, 内容前50字: ${text.slice(0,50).replace(/\n/g,'\\n')}`);
+            result = parseCSV(text);
+          } else if (isXLSX) {
+            // XLSX file
+            result = parseWeChat(buffer);
+          } else {
+            // Ambiguous: try XLSX first, fall back to CSV
+            result = parseWeChat(buffer);
+            if (!result.records || result.records.length === 0) {
+              mlLog('XLSX解析无结果, 尝试CSV解析');
+              const { text } = decodeText(buffer);
+              result = parseCSV(text);
+            }
+          }
+        } else {
+          // Unknown extension, try XLSX then CSV
+          result = parseWeChat(buffer);
+          if (!result.records || result.records.length === 0) {
+            const { text } = decodeText(buffer);
+            result = parseCSV(text);
+          }
+        }
+
+        if (result.reason) {
+          mlLog(`文件 ${fname}: ${result.reason}`);
+          debugInfo.push(`${fname}: ${result.reason}`);
+        }
+        if (result.records && result.records.length > 0) {
+          allRecords = allRecords.concat(result.records);
+          mlLog(`✅ ${fname}: ${result.records.length}条记录`);
+        }
+      } catch(fileErr) {
+        mlLog(`文件读取错误 ${fname}: ${fileErr.message}`);
+        debugInfo.push(`${fname}: ${fileErr.message}`);
+      }
+    }
+
+    if (allRecords.length === 0) {
+      clearTimeout(timer);
+      let msg = '未能解析出有效数据';
+      if (debugInfo.length > 0) msg += '\n' + debugInfo.join('\n');
+      if (typeof XLSX === 'undefined') msg += '\n⚠️ XLSX库未加载，请检查网络';
+      if (typeof echarts === 'undefined') msg += '\n⚠️ ECharts库未加载';
+      mlLog('解析失败:', msg);
+      showToast(msg);
+      document.getElementById('loader').classList.add('hidden');
+      document.getElementById('viewUpload').classList.remove('hidden');
+      return;
+    }
+
+    // Process all records
+    allRecords = processRecords(allRecords);
+
+    // Append mode: merge with existing records
+    if (existingRecords.length > 0) {
+      const existingKeys = new Set();
+      for (const r of existingRecords) {
+        existingKeys.add(r.time.toISOString() + '|' + r.target + '|' + r.amount_abs);
+      }
+      for (const r of allRecords) {
+        const key = r.time.toISOString() + '|' + r.target + '|' + r.amount_abs;
+        if (!existingKeys.has(key)) {
+          existingRecords.push(r);
+        }
+      }
+      allRecords = existingRecords;
+      mlLog('追加模式: 合并后共 ' + allRecords.length + ' 条记录');
+    }
+
+    // Calculate KPIs
+    const monthlyKPIs = calculateKPIs(allRecords);
+    allMonths = Object.keys(monthlyKPIs).sort().reverse();
+    kpiCache.monthly = monthlyKPIs;
+    kpiCache.total = calculateTotalKPI(allRecords, monthlyKPIs);
+    incomeTotal = allRecords.filter(r => r.type === '收入').reduce((s,r) => s + r.amount_abs, 0);
+    currentMonth = '总计';
+
+    // Save to IndexedDB
+    try { await dbSaveRecords(allRecords); } catch(e) { mlLog('DB保存错误: ' + e.message); }
+
+    clearTimeout(timer);
+    document.getElementById('loader').classList.add('hidden');
+    document.getElementById('tabBar').classList.remove('hidden');
+
+    mlLog(`分析完成: ${allRecords.length}条总记录, ${allMonths.length}个月`);
+    showToast(`✅ 分析完成！共 ${allRecords.length} 条记录`);
+
+    // Render
+    renderDashboard();
+    switchView('dashboard');
+
+  } catch(e) {
+    clearTimeout(timer);
+    console.error(e);
+    const libStatus = [];
+    if (typeof XLSX === 'undefined') libStatus.push('XLSX库未加载');
+    if (typeof echarts === 'undefined') libStatus.push('ECharts未加载');
+    const libMsg = libStatus.length ? ' (' + libStatus.join(', ') + ')' : '';
+    showToast('❌ 分析出错: ' + e.message + libMsg);
+    mlLog('严重错误:', e.message, e.stack);
+    document.getElementById('loader').classList.add('hidden');
+    document.getElementById('viewUpload').classList.remove('hidden');
+  }
+}
+
+function onFilesSelected(files) {
+  const info = document.getElementById('fileInfo');
+  const btn = document.getElementById('btnAnalyze');
+  if (files.length > 0) {
+    const names = Array.from(files).map(f => `${f.name}(${(f.size/1024).toFixed(0)}KB)`).join(', ');
+    info.textContent = `✅ 已选择 ${files.length} 个文件`;
+    btn.disabled = false;
+    mlLog('选择文件:', names);
+  } else {
+    info.textContent = '';
+    btn.disabled = true;
+  }
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  const dt = document.getElementById('darkToggle');
+  if (dt) dt.classList.toggle('on');
+}
+
+function toggleGuide() {
+  document.getElementById('guideModal').classList.toggle('show');
+}
+
+function resetApp() {
+  allRecords = [];
+  allMonths = [];
+  currentMonth = '总计';
+  kpiCache = {};
+  incomeTotal = 0;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileInfo').textContent = '';
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('tabBar').classList.add('hidden');
+  document.getElementById('viewDashboard').classList.add('hidden');
+  document.getElementById('viewUpload').classList.remove('hidden');
+  dbClearAll().catch(e => mlLog('DB清除失败:', e.message));
+  if (chartInstances.main) { chartInstances.main.dispose(); chartInstances.main = null; }
+}
+
+// Auto init: load saved data from IndexedDB on startup
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => initApp());
+} else {
+  initApp();
+}
+
+</script>
+</body>
+</html>
