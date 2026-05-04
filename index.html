@@ -374,38 +374,44 @@ function parseCSV(text) {
   if (headerIdx < 0) return { records: null, reason: '未找到表头行(交易时间+金额)' };
   // Parse headers
   const rawHeader = lines[headerIdx];
-  const headers = rawHeader.split(',').map(h => h.trim());
+  const headers = smartCSVSplit(rawHeader).map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+  mlLog('CSV表头:', headers.join(' | '));
   const colMap = {};
+  const colUnknown = [];
   headers.forEach((h, i) => {
-    if (h.includes('交易时间')) colMap.time = i;
-    if (h.includes('收/支') || h.includes('收支')) colMap.type = i;
-    if (h.includes('金额')) colMap.amount = i;
-    if (h.includes('对方')) colMap.target = i;
-    if (h.includes('商品')) colMap.product = i;
+    const hc = h.replace(/[\\s'"\\uFEFF]/g, '');
+    if (hc.includes('交易时间') || hc.includes('时间') && hc.includes('交易')) colMap.time = i;
+    else if (h.includes('收/支') || h.includes('收支') || hc.includes('收') && hc.includes('支')) colMap.type = i;
+    else if (h.includes('金额') || hc.includes('金额') && !colMap.amount) colMap.amount = i;
+    else if (h.includes('对方') || hc.includes('对方')) colMap.target = i;
+    else if (h.includes('商品') || h.includes('说明') || hc.includes('商品')) colMap.product = i;
+    else colUnknown.push(i);
   });
   if (colMap.time === undefined || colMap.amount === undefined) return { records: null, reason: '缺少必要列(交易时间/金额)' };
+  if (colMap.type === undefined) mlLog('CSV警告: 未找到收/支列, 将全部标记为支出');
+  mlLog('CSV列映射:', JSON.stringify(colMap));
   const records = [];
   let badRows = 0;
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    // Skip separator lines (all dashes)
     if (/^[-=]{5,}$/.test(line)) continue;
-    // Handle quoted CSV properly: split by comma but not inside quotes
-    const parts = smartCSVSplit(line);
+    const parts = smartCSVSplit(line).map(p => p.trim().replace(/^"(.*)"$/, '$1'));
     if (parts.length <= Math.max(...Object.values(colMap))) { badRows++; continue; }
     try {
-      const type = (parts[colMap.type] || '').trim();
-      if (!type.includes('支出') && !type.includes('收入')) continue;
-      const amtStr = parts[colMap.amount].replace(/[^-\d.]/g, '');
+      const typeStr = (parts[colMap.type] || '').trim();
+      const hasIncome = typeStr.includes('收入') || typeStr.includes('收入');
+      const hasExpense = typeStr.includes('支出') || typeStr.includes('支出');
+      if (colMap.type !== undefined && !hasIncome && !hasExpense) continue;
+      const amtStr = parts[colMap.amount].replace(/[^\\-\\d.]/g, '');
       const amount = parseFloat(amtStr);
-      if (isNaN(amount) || Math.abs(amount) <= 0) continue;
+      if (isNaN(amount) || Math.abs(amount) <= 0) { badRows++; continue; }
       records.push({
         time: parts[colMap.time].trim(),
         target: colMap.target !== undefined ? parts[colMap.target].trim() : '',
         product: colMap.product !== undefined ? parts[colMap.product].trim() : '',
         amount: Math.abs(amount),
-        type: type.includes('收入') ? '收入' : '支出',
+        type: hasIncome ? '收入' : '支出',
         platform: '支付宝'
       });
     } catch(e) { badRows++; }
@@ -496,7 +502,6 @@ function readFileBuffer(file) {
   return new Promise((resolve, reject) => {
     if (file.arrayBuffer) {
       file.arrayBuffer().then(resolve).catch(err => {
-        // Fallback to FileReader
         const reader = new FileReader();
         reader.onload = e => resolve(e.target.result);
         reader.onerror = e => reject(e.target.error);
@@ -513,37 +518,54 @@ function readFileBuffer(file) {
 
 // Try multiple encodings and return the best result
 function decodeText(buffer) {
-  const results = [];
-  // Try GBK first (Alipay's default)
-  try {
-    const t = new TextDecoder('gbk', {fatal:false}).decode(buffer);
-    // Check if it looks like Chinese CSV (has recognizable characters)
-    if (t.includes('交易时间') || t.includes('支出') || t.includes('金额') || t.includes('支付宝')) {
-      return { text: t, encoding: 'gbk' };
+  // Strip BOM if present
+  let cleanBuf = buffer;
+  if (buffer instanceof ArrayBuffer) {
+    const view = new Uint8Array(buffer, 0, 3);
+    if (view[0] === 0xEF && view[1] === 0xBB && view[2] === 0xBF) {
+      cleanBuf = buffer.slice(3);
+    } else if (view[0] === 0xFF && view[1] === 0xFE) {
+      cleanBuf = buffer.slice(2);
+    } else if (view[0] === 0xFE && view[1] === 0xFF) {
+      cleanBuf = buffer.slice(2);
     }
-    results.push({ text: t, encoding: 'gbk-score', score: (t.match(/[一-鿿]/g) || []).length });
-  } catch(e) {}
-  // Try UTF-8
+  }
+  // Try UTF-8 first (after BOM strip)
   try {
-    const t = new TextDecoder('utf-8', {fatal:false}).decode(buffer);
-    if (t.includes('交易时间') || t.includes('金额') || t.includes('支付宝') || t.includes('微信')) {
+    const t = new TextDecoder('utf-8', {fatal:false}).decode(cleanBuf);
+    if (t.includes('交易时间') || t.includes('金额') || t.includes('支付宝') || t.includes('微信') || t.includes('商品说明')) {
+      mlLog('编码检测: utf-8 (含中文关键词)');
       return { text: t, encoding: 'utf-8' };
     }
-    results.push({ text: t, encoding: 'utf-8-score', score: (t.match(/[一-鿿]/g) || []).length });
+    // If no BOM and not matching keywords, still try UTF-8
+    if (cleanBuf === buffer) {
+      // Try to detect UTF-8 validity
+      try {
+        new TextDecoder('utf-8', {fatal:true}).decode(cleanBuf);
+        mlLog('编码检测: utf-8 (有效)');
+        return { text: t, encoding: 'utf-8' };
+      } catch(e) {}
+    }
   } catch(e) {}
-  // Try UTF-8 with BOM skip
+  // Try GBK (common for Chinese Windows CSVs)
   try {
-    const t = new TextDecoder('utf-8', {fatal:false}).decode(buffer.slice(3));
-    results.push({ text: t, encoding: 'utf-8-bom', score: (t.match(/[一-鿿]/g) || []).length });
+    const t = new TextDecoder('gbk', {fatal:false}).decode(cleanBuf);
+    if (t.includes('交易时间') || t.includes('支出') || t.includes('金额') || t.includes('支付宝') || t.includes('商品说明')) {
+      mlLog('编码检测: gbk (含中文关键词)');
+      return { text: t, encoding: 'gbk' };
+    }
   } catch(e) {}
-  // Return the one with most Chinese characters
-  results.sort((a, b) => (b.score || 0) - (a.score || 0));
-  if (results.length > 0) {
-    mlLog(`编码检测: 选择${results[0].encoding}, 含${results[0].score}中文字符`);
-    return { text: results[0].text, encoding: results[0].encoding };
+  // Fallback: try GBK, count Chinese chars
+  let best = { text: '', encoding: 'fallback', score: -1 };
+  for (const enc of ['gbk', 'utf-8']) {
+    try {
+      const t = new TextDecoder(enc, {fatal:false}).decode(cleanBuf);
+      const score = (t.match(/[一-鿿]/g) || []).length;
+      if (score > best.score) best = { text: t, encoding: enc, score };
+    } catch(e) {}
   }
-  // Last resort: try as-is
-  return { text: new TextDecoder('utf-8', {fatal:false}).decode(buffer), encoding: 'fallback' };
+  mlLog(`编码检测: ${best.encoding}, ${best.score}中文字符`);
+  return { text: best.text, encoding: best.encoding };
 }
 
 // ============================================================
@@ -1392,7 +1414,7 @@ async function dbDeleteSession(id) {
 // 10. EXPORT / SHARE
 // ============================================================
 
-function exportData() {
+async function exportData() {
   if (allRecords.length === 0) { showToast('暂无数据可导出'); return; }
   const data = {
     version: '1.0',
@@ -1409,13 +1431,23 @@ function exportData() {
     }))
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const fileName = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '.json';
+  // Try system share first (send to WeChat/QQ directly)
+  try {
+    const file = new File([blob], fileName, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'MoneyLens 数据导出' });
+      return;
+    }
+  } catch(e) {}
+  // Fallback: download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ 数据已导出');
+  showToast('✅ 数据已下载，可通过文件管理器分享到微信/QQ');
 }
 
 async function shareData() {
@@ -1584,7 +1616,7 @@ function loadDemoData() {
 // 12. PDF REPORT
 // ============================================================
 
-function exportReport() {
+async function exportReport() {
   if (allRecords.length === 0) { showToast('暂无数据可生成报告'); return; }
 
   const kpi = kpiCache.total;
@@ -1690,15 +1722,24 @@ ${(() => {
 </body>
 </html>`;
 
-  // Download as HTML file (mobile-friendly Blob approach)
   const blob = new Blob([reportHTML], { type: 'text/html' });
+  const fileName = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '_报告.html';
+  // Try system share first (send to WeChat/QQ directly)
+  try {
+    const file = new File([blob], fileName, { type: 'text/html' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'MoneyLens 财务报告' });
+      return;
+    }
+  } catch(e) {}
+  // Fallback: download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '_报告.html';
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ 报告已生成，已下载为 HTML 文件，打开后用浏览器打印为 PDF');
+  showToast('✅ 报告已下载，可通过文件管理器分享到微信/QQ');
 }
 
 // Session history panel
@@ -1763,7 +1804,7 @@ async function switchSession(id) {
 
 async function initApp() {
   // Register service worker for PWA offline support
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && location.hostname !== 'null') {
     try { await navigator.serviceWorker.register('sw.js'); } catch(e) { mlLog('SW注册失败:', e.message); }
   }
   try {
@@ -1851,7 +1892,7 @@ async function startAnalysis() {
     const debugInfo = [];
 
     for (const file of files) {
-      const fname = file.name;
+      const fname = file.name || '文件_' + Math.random().toString(36).slice(2,6);
       const fsize = (file.size / 1024).toFixed(1);
       mlLog(`处理文件: ${fname} (${fsize}KB)`);
 
@@ -1981,7 +2022,7 @@ function onFilesSelected(files) {
   const info = document.getElementById('fileInfo');
   const btn = document.getElementById('btnAnalyze');
   if (files.length > 0) {
-    const names = Array.from(files).map(f => `${f.name}(${(f.size/1024).toFixed(0)}KB)`).join(', ');
+    const names = Array.from(files).map(f => `${f.name || '文件'}( ${(f.size/1024).toFixed(0)}KB )`).join(', ');
     info.textContent = `✅ 已选择 ${files.length} 个文件`;
     btn.disabled = false;
     mlLog('选择文件:', names);
