@@ -180,6 +180,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* Modal polish */
 .modal-overlay.show{animation:fadeIn .2s ease}
 .modal-content{animation:slideUp .3s ease}
+
+/* Session history */
+.session-btn{position:static!important;background:var(--card)!important;color:var(--text)!important;border:1px solid var(--border)!important;width:auto!important;padding:0 12px!important;border-radius:8px!important;font-size:12px!important;cursor:pointer}
+.session-btn:active{transform:scale(.96)!important}
+.session-item{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--border);cursor:pointer;transition:.2s}
+.session-item:last-child{border-bottom:none}
+.session-item:active{background:rgba(67,97,238,.05)}
+.session-item .left{flex:1;min-width:0}
+.session-item .name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.session-item .meta{font-size:11px;color:var(--text2);margin-top:3px}
+.session-item .del-btn{font-size:16px;padding:8px;color:var(--danger);background:none;border:none;cursor:pointer}
+.session-empty{text-align:center;padding:40px 20px;color:var(--text2);font-size:14px}
 </style>
 </head>
 <body>
@@ -247,6 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="exportReport()">📄 报告</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="exportData()">📥 导出</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="shareData()">📤 分享</button>
+      <button class="session-btn" onclick="showSessionPanel()">📁 历史</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="resetApp()">📤 重新上传</button>
     </div>
     <!-- Month selector -->
@@ -269,6 +282,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="section-title">📈 图表分析</div>
     <div id="chartTabs"></div>
     <div id="chartContainer" style="margin-bottom:12px"></div>
+  </div>
+</div>
+
+<!-- Session History Modal -->
+<div class="modal-overlay" id="sessionModal">
+  <div class="modal-content" style="max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:0">
+      <h3>📁 分析历史</h3>
+      <button class="close-modal" onclick="hideSessionPanel()">✕</button>
+    </div>
+    <div id="sessionList"></div>
   </div>
 </div>
 
@@ -1234,11 +1258,15 @@ function renderCalendarChart(chart, records) {
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('MoneyLens', 1);
+    const req = indexedDB.open('MoneyLens', 2);
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains('records')) {
         db.createObjectStore('records', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('sessions')) {
+        const store = db.createObjectStore('sessions', { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
       }
     };
     req.onsuccess = e => resolve(e.target.result);
@@ -1292,6 +1320,72 @@ async function dbClearAll() {
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });
+}
+
+// Session history
+async function dbSaveSession(name, records) {
+  const db = await openDB();
+  const tx = db.transaction('sessions', 'readwrite');
+  const store = tx.objectStore('sessions');
+  const count = await new Promise((resolve, reject) => {
+    const r = store.count();
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  if (count >= 20) {
+    const all = await new Promise((resolve, reject) => {
+      const r = store.getAll();
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    all.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    for (const s of all.slice(0, count - 19)) store.delete(s.id);
+  }
+  const session = {
+    id: Date.now().toString(),
+    name: name || '账单分析 ' + new Date().toLocaleString('zh-CN'),
+    createdAt: new Date().toISOString(),
+    recordCount: records.length,
+    records: records.map(r => { const c = {...r}; c.time = r.time instanceof Date ? r.time.toISOString() : r.time; return c; })
+  };
+  store.put(session);
+  await new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
+  return session.id;
+}
+
+async function dbLoadSessionList() {
+  const db = await openDB();
+  const tx = db.transaction('sessions', 'readonly');
+  const store = tx.objectStore('sessions');
+  const all = await new Promise((resolve, reject) => {
+    const r = store.getAll();
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return all.map(s => ({ id: s.id, name: s.name, createdAt: s.createdAt, recordCount: s.recordCount }));
+}
+
+async function dbLoadSessionById(id) {
+  const db = await openDB();
+  const tx = db.transaction('sessions', 'readonly');
+  const store = tx.objectStore('sessions');
+  const session = await new Promise((resolve, reject) => {
+    const r = store.get(id);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  if (session && session.records) {
+    for (const r of session.records) r.time = new Date(r.time);
+  }
+  return session;
+}
+
+async function dbDeleteSession(id) {
+  const db = await openDB();
+  const tx = db.transaction('sessions', 'readwrite');
+  const store = tx.objectStore('sessions');
+  await new Promise((resolve, reject) => { const r = store.delete(id); r.onsuccess = () => resolve(); r.onerror = () => reject(r.error); });
 }
 
 // ============================================================
@@ -1478,6 +1572,7 @@ function loadDemoData() {
     currentMonth = '总计';
     document.getElementById('tabBar').classList.remove('hidden');
     dbSaveRecords(allRecords).catch(e => mlLog('DB保存失败:', e.message));
+    dbSaveSession('演示数据', allRecords).catch(e => mlLog('会话保存失败:', e.message));
     mlLog(`演示数据已加载: ${allRecords.length}条, ${allMonths.length}个月`);
     renderDashboard();
     switchView('dashboard');
@@ -1604,6 +1699,66 @@ ${(() => {
   a.click();
   URL.revokeObjectURL(url);
   showToast('✅ 报告已生成，已下载为 HTML 文件，打开后用浏览器打印为 PDF');
+}
+
+// Session history panel
+function showSessionPanel() {
+  document.getElementById('sessionModal').classList.add('show');
+  renderSessionList();
+}
+
+function hideSessionPanel() {
+  document.getElementById('sessionModal').classList.remove('show');
+}
+
+async function renderSessionList() {
+  const el = document.getElementById('sessionList');
+  try {
+    const sessions = await dbLoadSessionList();
+    if (sessions.length === 0) {
+      el.innerHTML = '<div class="session-empty">暂无历史记录<br><span style="font-size:12px">上传分析后会自动保存</span></div>';
+      return;
+    }
+    el.innerHTML = sessions.map(s => `
+      <div class="session-item" onclick="switchSession('${s.id}')">
+        <div class="left">
+          <div class="name">${s.name}</div>
+          <div class="meta">${new Date(s.createdAt).toLocaleString('zh-CN')} · ${s.recordCount} 条记录</div>
+        </div>
+        <button class="del-btn" onclick="event.stopPropagation();deleteSession('${s.id}')">🗑️</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="session-empty">加载失败</div>';
+    mlLog('会话列表加载失败:', e.message);
+  }
+}
+
+async function deleteSession(id) {
+  await dbDeleteSession(id);
+  showToast('已删除');
+  renderSessionList();
+}
+
+async function switchSession(id) {
+  hideSessionPanel();
+  const session = await dbLoadSessionById(id);
+  if (!session || !session.records || session.records.length === 0) {
+    showToast('该历史记录无数据');
+    return;
+  }
+  allRecords = session.records;
+  const monthlyKPIs = calculateKPIs(allRecords);
+  allMonths = Object.keys(monthlyKPIs).sort().reverse();
+  kpiCache.monthly = monthlyKPIs;
+  kpiCache.total = calculateTotalKPI(allRecords, monthlyKPIs);
+  incomeTotal = allRecords.filter(r => r.type === '收入').reduce((s,r) => s + r.amount_abs, 0);
+  currentMonth = '总计';
+  try { await dbSaveRecords(allRecords); } catch(e) { mlLog('DB保存错误:', e.message); }
+  document.getElementById('tabBar').classList.remove('hidden');
+  renderDashboard();
+  switchView('dashboard');
+  showToast('✅ 已切换到: ' + session.name);
 }
 
 async function initApp() {
@@ -1792,6 +1947,10 @@ async function startAnalysis() {
 
     // Save to IndexedDB
     try { await dbSaveRecords(allRecords); } catch(e) { mlLog('DB保存错误: ' + e.message); }
+    try {
+      const fnames = Array.from(files).map(f => f.name).join(', ');
+      await dbSaveSession(fnames, allRecords);
+    } catch(e) { mlLog('会话保存错误: ' + e.message); }
 
     clearTimeout(timer);
     document.getElementById('loader').classList.add('hidden');
