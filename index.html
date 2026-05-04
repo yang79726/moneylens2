@@ -124,6 +124,62 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .platform-icon{font-size:24px;vertical-align:middle;margin-right:4px}
 .empty-state{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
 .empty-state .icon{font-size:48px;margin-bottom:12px}
+
+/* ===== UI Polish: Animations & Transitions ===== */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes scaleIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+
+.container{animation:fadeIn .3s ease}
+
+/* Card entrance animations */
+.kpi-card:nth-child(1){animation:slideUp .35s ease both}
+.kpi-card:nth-child(2){animation:slideUp .35s .08s ease both}
+.kpi-card:nth-child(3){animation:slideUp .35s .16s ease both}
+.kpi-card:nth-child(4){animation:slideUp .35s .24s ease both}
+.kpi-card:nth-child(5){animation:slideUp .35s .32s ease both}
+.kpi-card:nth-child(6){animation:slideUp .35s .40s ease both}
+
+.cat-card{animation:fadeInUp .4s .2s ease both}
+.rice-card{animation:fadeInUp .4s .3s ease both}
+#categoryStats{animation:fadeInUp .4s .35s ease both}
+.section-title{animation:fadeIn .4s ease both}
+.month-bar{animation:fadeIn .3s ease both}
+.detail-card{animation:fadeInUp .35s ease both}
+
+/* Card hover effects */
+@media(hover:hover){
+  .card:hover,.kpi-card:hover,.detail-card:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.12)}
+  .month-chip:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+}
+
+/* Button press effect */
+.btn:active,.header-btn:active,.dash-btn:active,.month-chip:active{transform:scale(.96)!important}
+
+/* Loading skeleton */
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,rgba(67,97,238,.08) 50%,var(--border) 75%);background-size:200% 100%;animation:pulse 1.5s ease infinite;border-radius:8px}
+
+/* Chart container entrance */
+.chart-box{animation:fadeIn .5s ease}
+
+/* Toast enhancement */
+.toast.show{animation:slideUp .25s ease;backdrop-filter:blur(10px);background:rgba(30,41,59,.92)}
+
+/* Tab bar active indicator */
+.tab-item{position:relative}
+.tab-item.active::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:24px;height:3px;background:var(--primary);border-radius:2px;animation:scaleIn .2s ease}
+
+/* Improved scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Modal polish */
+.modal-overlay.show{animation:fadeIn .2s ease}
+.modal-content{animation:slideUp .3s ease}
 </style>
 </head>
 <body>
@@ -169,6 +225,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
     <button class="btn btn-primary" id="btnAnalyze" disabled onclick="startAnalysis()">🚀 开始分析</button>
 
+    <button class="btn btn-secondary" style="margin-top:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff" onclick="loadDemoData()">🎮 体验演示数据</button>
+
     <div class="loader" id="loader">
       <div class="spinner"></div>
       <div style="font-size:14px;color:var(--text2)">正在解析分析账单数据...</div>
@@ -177,6 +235,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <!-- Help text -->
     <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text2)">
       <span>📱 数据仅存于本地，不会上传到服务器</span>
+      <span style="display:block;margin-top:4px;opacity:0.7">🏆 计算机设计大赛参赛作品 · 兰州大学</span>
     </div>
     <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--text2);cursor:pointer" onclick="showDebug()">🔧 点此查看调试日志</div>
     <div class="debug-panel" id="debugPanel"></div>
@@ -184,7 +243,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
   <!-- Dashboard View -->
   <div id="viewDashboard" class="hidden">
-    <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px">
+    <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
+      <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="exportReport()">📄 报告</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="exportData()">📥 导出</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="shareData()">📤 分享</button>
       <button class="header-btn" style="position:static;background:var(--card);color:var(--text);border:1px solid var(--border);width:auto;padding:0 12px;border-radius:8px;font-size:12px" onclick="resetApp()">📤 重新上传</button>
@@ -1276,8 +1336,272 @@ async function shareData() {
 }
 
 // ============================================================
-// 11. AUTO INIT (Load saved data from IndexedDB)
+// 11. DEMO DATA
 // ============================================================
+
+function generateSampleData() {
+  const names = [
+    '兰州大学食堂', '蜜雪冰城', '益禾堂', '瑞幸咖啡', '肯德基',
+    '兰州拉面馆', '麻辣烫小店', '水果摊', '天猫超市', '京东商城',
+    '拼多多', '美团外卖', '饿了么', '滴滴出行', '兰州轨道交通',
+    '哈啰单车', '中国移动', '兰州电影院', 'Bilibili', '腾讯视频',
+    'App Store', '文具店', '兰州大学图书馆', '打印店', '理发店',
+    '中国电信', '淘宝网', '闲鱼', '7-11便利店', '星巴克'
+  ];
+  const targets = {
+    '兰州大学食堂': { product: ['午餐','晚餐','早餐','午饭','晚饭'], cat: ['餐饮美食','中餐正餐'] },
+    '蜜雪冰城': { product: ['柠檬水','甜筒','奶茶','冰淇淋'], cat: ['餐饮美食','甜品饮品'] },
+    '益禾堂': { product: ['烤奶','奶茶','果茶'], cat: ['餐饮美食','甜品饮品'] },
+    '瑞幸咖啡': { product: ['生椰拿铁','美式','拿铁'], cat: ['餐饮美食','甜品饮品'] },
+    '肯德基': { product: ['套餐','汉堡','炸鸡'], cat: ['餐饮美食','快餐简餐'] },
+    '兰州拉面馆': { product: ['拉面','炒面','盖浇饭'], cat: ['餐饮美食','中餐正餐'] },
+    '麻辣烫小店': { product: ['麻辣烫','冒菜'], cat: ['餐饮美食','中餐正餐'] },
+    '水果摊': { product: ['水果','西瓜','草莓'], cat: ['餐饮美食','便利零食'] },
+    '天猫超市': { product: ['日用品','零食大礼包','饮料'], cat: ['网购消费','淘宝天猫'] },
+    '京东商城': { product: ['数据线','移动电源','耳机','鼠标'], cat: ['网购消费','京东'] },
+    '拼多多': { product: ['手机壳','桌面收纳','文具'], cat: ['网购消费','拼多多'] },
+    '美团外卖': { product: ['外卖套餐','盖浇饭','米线'], cat: ['餐饮美食','外卖点餐'] },
+    '饿了么': { product: ['奶茶','便当','粥'], cat: ['餐饮美食','外卖点餐'] },
+    '滴滴出行': { product: ['快车','拼车'], cat: ['交通出行','打车租车'] },
+    '兰州轨道交通': { product: ['地铁票'], cat: ['交通出行','公交地铁'] },
+    '哈啰单车': { product: ['骑行卡','单车'], cat: ['交通出行','共享单车'] },
+    '中国移动': { product: ['话费充值','流量包'], cat: ['生活服务','通讯缴费'] },
+    '兰州电影院': { product: ['电影票'], cat: ['休闲娱乐','电影演出'] },
+    'Bilibili': { product: ['大会员'], cat: ['休闲娱乐','会员订阅'] },
+    '腾讯视频': { product: ['VIP会员'], cat: ['休闲娱乐','会员订阅'] },
+    'App Store': { product: ['应用购买','内购'], cat: ['休闲娱乐','AppStore'] },
+    '文具店': { product: ['笔记本','笔','文具'], cat: ['教育培训','书籍文具'] },
+    '兰州大学图书馆': { product: ['复印','打印','书籍'], cat: ['教育培训','书籍文具'] },
+    '打印店': { product: ['打印','复印','资料'], cat: ['教育培训','书籍文具'] },
+    '理发店': { product: ['理发洗吹'], cat: ['生活服务','美容美发'] },
+    '中国电信': { product: ['宽带费'], cat: ['生活服务','通讯缴费'] },
+    '淘宝网': { product: ['衣服','鞋子','背包'], cat: ['网购消费','淘宝天猫'] },
+    '闲鱼': { product: ['二手书','二手物品'], cat: ['网购消费','淘宝天猫'] },
+    '7-11便利店': { product: ['便当','饮料','零食'], cat: ['餐饮美食','便利零食'] },
+    '星巴克': { product: ['拿铁','星冰乐'], cat: ['餐饮美食','甜品饮品'] }
+  };
+
+  const months = ['2025-09','2025-10','2025-11','2025-12','2026-01','2026-02'];
+  const incomeItems = [
+    { target: '生活费（父母）', product: '9月生活费', amount: 2500, platform: '微信' },
+    { target: '生活费（父母）', product: '10月生活费', amount: 2500, platform: '微信' },
+    { target: '生活费（父母）', product: '11月生活费', amount: 2500, platform: '微信' },
+    { target: '生活费（父母）', product: '12月生活费', amount: 2500, platform: '微信' },
+    { target: '生活费（父母）', product: '1月生活费', amount: 2500, platform: '微信' },
+    { target: '生活费（父母）', product: '2月生活费', amount: 2500, platform: '微信' },
+    { target: '勤工助学', product: '图书馆助理9月', amount: 480, platform: '支付宝' },
+    { target: '勤工助学', product: '图书馆助理10月', amount: 480, platform: '支付宝' },
+    { target: '勤工助学', product: '图书馆助理11月', amount: 320, platform: '支付宝' },
+    { target: '奖学金', product: '校级一等奖学金', amount: 2000, platform: '支付宝' }
+  ];
+
+  const records = [];
+  // Add income records
+  for (const inc of incomeItems) {
+    const month = months.find(m => inc.product.includes(m.replace('2025-','').replace('2026-',''))) || months[0];
+    const day = Math.floor(Math.random() * 5) + 1;
+    records.push({
+      time: `${month}-${String(day).padStart(2,'0')} 10:00:00`,
+      target: inc.target,
+      product: inc.product,
+      amount: inc.amount,
+      type: '收入',
+      platform: inc.platform
+    });
+  }
+
+  // Generate expense records for each month
+  for (const month of months) {
+    // Determine how many days in month
+    const daysInMonth = month === '2026-02' ? 28 : 30;
+    const numTransactions = 20 + Math.floor(Math.random() * 15);
+
+    for (let i = 0; i < numTransactions; i++) {
+      const target = names[Math.floor(Math.random() * names.length)];
+      const info = targets[target];
+      const product = info.product[Math.floor(Math.random() * info.product.length)];
+      let amount;
+
+      // Generate realistic amounts based on category
+      if (info.cat[1] === '中餐正餐' || info.cat[1] === '快餐简餐' || info.cat[1] === '外卖点餐') {
+        amount = parseFloat((8 + Math.random() * 20).toFixed(2));
+      } else if (info.cat[1] === '甜品饮品') {
+        amount = parseFloat((5 + Math.random() * 18).toFixed(2));
+      } else if (info.cat[1] === '便利零食' || info.cat[1] === '水果摊') {
+        amount = parseFloat((3 + Math.random() * 25).toFixed(2));
+      } else if (info.cat[1] === '公交地铁' || info.cat[1] === '共享单车') {
+        amount = parseFloat((1 + Math.random() * 5).toFixed(2));
+      } else if (info.cat[1] === '打车租车') {
+        amount = parseFloat((8 + Math.random() * 30).toFixed(2));
+      } else if (info.cat[1] === '通讯缴费') {
+        amount = parseFloat((30 + Math.random() * 70).toFixed(2));
+      } else if (info.cat[1] === '会员订阅' || info.cat[1] === 'AppStore') {
+        amount = parseFloat((6 + Math.random() * 25).toFixed(2));
+      } else if (info.cat[1] === '电影演出') {
+        amount = parseFloat((30 + Math.random() * 40).toFixed(2));
+      } else if (info.cat[1] === '京东' || info.cat[1] === '淘宝天猫' || info.cat[1] === '拼多多') {
+        amount = parseFloat((15 + Math.random() * 100).toFixed(2));
+      } else if (info.cat[1] === '书籍文具') {
+        amount = parseFloat((5 + Math.random() * 40).toFixed(2));
+      } else {
+        amount = parseFloat((5 + Math.random() * 50).toFixed(2));
+      }
+
+      const day = Math.floor(Math.random() * daysInMonth) + 1;
+      const hour = Math.floor(Math.random() * 14) + 7;
+      const minute = Math.floor(Math.random() * 60);
+      records.push({
+        time: `${month}-${String(day).padStart(2,'0')} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00`,
+        target: target,
+        product: product,
+        amount: amount,
+        type: '支出',
+        platform: Math.random() > 0.5 ? '支付宝' : '微信'
+      });
+    }
+  }
+
+  return records;
+}
+
+function loadDemoData() {
+  showToast('🔄 正在生成演示数据...');
+  setTimeout(() => {
+    const rawRecords = generateSampleData();
+    allRecords = processRecords(rawRecords);
+    const monthlyKPIs = calculateKPIs(allRecords);
+    allMonths = Object.keys(monthlyKPIs).sort().reverse();
+    kpiCache.monthly = monthlyKPIs;
+    kpiCache.total = calculateTotalKPI(allRecords, monthlyKPIs);
+    incomeTotal = allRecords.filter(r => r.type === '收入').reduce((s,r) => s + r.amount_abs, 0);
+    currentMonth = '总计';
+    document.getElementById('tabBar').classList.remove('hidden');
+    dbSaveRecords(allRecords).catch(e => mlLog('DB保存失败:', e.message));
+    mlLog(`演示数据已加载: ${allRecords.length}条, ${allMonths.length}个月`);
+    renderDashboard();
+    switchView('dashboard');
+    showToast(`✅ 演示数据加载完成！共 ${allRecords.length} 条记录，覆盖 ${allMonths.length} 个月`);
+  }, 300);
+}
+
+// ============================================================
+// 12. PDF REPORT
+// ============================================================
+
+function exportReport() {
+  if (allRecords.length === 0) { showToast('暂无数据可生成报告'); return; }
+
+  const kpi = kpiCache.total;
+  if (!kpi) { showToast('请先分析数据'); return; }
+
+  const totalExpense = allRecords.filter(r => r.type === '支出').reduce((s,r) => s + r.amount_abs, 0);
+  const foodExpense = allRecords.filter(r => r.type === '支出' && r.main_category === '餐饮美食').reduce((s,r) => s + r.amount_abs, 0);
+  const numTransactions = allRecords.filter(r => r.type === '支出').length;
+
+  // Build category breakdown
+  const cats = {};
+  for (const r of allRecords) {
+    if (r.type !== '支出') continue;
+    cats[r.main_category] = (cats[r.main_category] || 0) + r.amount_abs;
+  }
+  const sortedCats = Object.entries(cats).sort((a,b) => b[1] - a[1]);
+
+  // Build monthly trend
+  const monthly = {};
+  for (const r of allRecords) {
+    if (r.type !== '支出') continue;
+    monthly[r.year_month] = (monthly[r.year_month] || 0) + r.amount_abs;
+  }
+  const sortedMonths = Object.entries(monthly).sort((a,b) => a[0].localeCompare(b[0]));
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('zh-CN');
+
+  const reportHTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>MoneyLens 财务报告</title>
+<style>
+  @page { margin: 2cm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; color: #1e293b; padding: 20px; }
+  .report-header { text-align: center; padding: 30px 0 20px; border-bottom: 3px solid #4361ee; margin-bottom: 20px; }
+  .report-header h1 { font-size: 24px; color: #4361ee; }
+  .report-header p { color: #64748b; font-size: 13px; margin-top: 6px; }
+  .kpi-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .kpi-box { flex: 1; min-width: 120px; background: #f4f7fe; border-radius: 10px; padding: 14px; text-align: center; }
+  .kpi-box .label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+  .kpi-box .value { font-size: 18px; font-weight: 700; color: #4361ee; }
+  h2 { font-size: 16px; color: #4361ee; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { background: #4361ee; color: #fff; padding: 8px 12px; text-align: left; font-size: 13px; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #eef2ff; color: #4361ee; }
+  .highlight { color: #ef4444; font-weight: 700; }
+  .highlight-green { color: #22c55e; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="report-header">
+  <h1>🐱 MoneyLens 财务分析报告</h1>
+  <p>生成日期: ${dateStr} · 兰州大学 计算机设计大赛参赛作品</p>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi-box"><div class="label">📊 总支出</div><div class="value highlight">¥${kpi.total_expense_str}</div></div>
+  <div class="kpi-box"><div class="label">💰 总收入</div><div class="value highlight-green">¥${incomeTotal.toFixed(2)}</div></div>
+  <div class="kpi-box"><div class="label">📅 统计周期</div><div class="value">${kpi.months} 个月</div></div>
+  <div class="kpi-box"><div class="label">🍚 恩格尔系数</div><div class="value">${kpi.engle}</div></div>
+  <div class="kpi-box"><div class="label">💳 交易笔数</div><div class="value">${numTransactions}</div></div>
+  <div class="kpi-box"><div class="label">🎭 消费人格</div><div class="value"><span class="badge">${kpi.persona_type}</span></div></div>
+</div>
+
+<h2>📊 月度消费趋势</h2>
+<table>
+<tr><th>月份</th><th style="text-align:right">支出 (元)</th><th style="text-align:right">日均 (元)</th><th style="text-align:right">笔数</th></tr>
+${sortedMonths.map(([m, amt]) => {
+  const monthKPI = kpiCache.monthly[m];
+  return `<tr><td>${m}</td><td style="text-align:right">¥${monthKPI ? monthKPI.total_expense_str : amt.toFixed(2)}</td><td style="text-align:right">¥${monthKPI ? monthKPI.daily_avg.toFixed(2) : ''}</td><td style="text-align:right">${monthKPI ? monthKPI.transaction_count : ''}</td></tr>`;
+}).join('\n')}
+</table>
+
+<h2>🏷️ 支出分类统计</h2>
+<table>
+<tr><th>分类</th><th style="text-align:right">金额 (元)</th><th style="text-align:right">占比</th></tr>
+${sortedCats.map(([cat, amt]) => {
+  const pct = (amt / totalExpense * 100).toFixed(1);
+  return `<tr><td>${cat}</td><td style="text-align:right">¥${formatMoney(amt)}</td><td style="text-align:right">${pct}%</td></tr>`;
+}).join('\n')}
+<tr style="font-weight:700"><td>合计</td><td style="text-align:right">¥${formatMoney(totalExpense)}</td><td style="text-align:right">100%</td></tr>
+</table>
+
+<h2>🍚 大米换算</h2>
+${(() => {
+  const survival = calcSurvival(totalExpense, totalExpense / Math.max(kpi.months, 1));
+  return `<p style="font-size:14px;line-height:1.8">
+  总支出相当于 <b>${survival.riceJin.toFixed(1)} 斤</b> 大米 (¥2.6/斤)<br>
+  需要搬砖 <b>${survival.workHours.toFixed(1)} 小时</b> (${survival.workDays.toFixed(1)} 天)<br>
+  约重 <b>${survival.riceTons.toFixed(2)} 吨</b> · ${survival.spaceDesc}<br>
+  足够一个人吃 <b>${survival.survivalDays}</b> 天
+  </p>`;
+})()}
+
+<div class="footer">
+  <p>📱 MoneyLens 跨平台账单分析工具 · 数据仅存于本地，不上传服务器</p>
+  <p style="margin-top:4px">🏆 中国大学生计算机设计大赛 · 兰州大学</p>
+</div>
+</body>
+</html>`;
+
+  // Open in new window for printing
+  const win = window.open('', '_blank');
+  win.document.write(reportHTML);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 500);
+  showToast('✅ 报告已生成，请使用打印/Ctrl+P 保存为 PDF');
+}
 
 async function initApp() {
   // Register service worker for PWA offline support

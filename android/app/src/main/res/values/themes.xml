@@ -2,5 +2,6 @@
 <resources>
     <style name="Theme.MoneyLens" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:statusBarColor">#4361ee</item>
+        <item name="android:windowBackground">@drawable/splash_screen</item>
     </style>
 </resources>

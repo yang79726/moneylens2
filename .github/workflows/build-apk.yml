@@ -12,6 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -23,6 +28,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Bundle offline assets
+        run: bash android/bundle-offline.sh
 
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.5
