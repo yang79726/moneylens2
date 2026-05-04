@@ -31,9 +31,18 @@ public class MainActivity extends AppCompatActivity {
                 if (filePathCallback == null) return;
                 Uri[] results = null;
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    String dataString = result.getData().getDataString();
-                    if (dataString != null) {
-                        results = new Uri[]{Uri.parse(dataString)};
+                    // Handle multiple files via ClipData
+                    var clipData = result.getData().getClipData();
+                    if (clipData != null && clipData.getItemCount() > 1) {
+                        results = new Uri[clipData.getItemCount()];
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            results[i] = clipData.getItemAt(i).getUri();
+                        }
+                    } else {
+                        String dataString = result.getData().getDataString();
+                        if (dataString != null) {
+                            results = new Uri[]{Uri.parse(dataString)};
+                        }
                     }
                 }
                 filePathCallback.onReceiveValue(results);

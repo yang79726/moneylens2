@@ -1331,7 +1331,8 @@ async function shareData() {
   if (navigator.share) {
     try { await navigator.share({ title: 'MoneyLens 财务报告', text: text }); } catch(e) {}
   } else {
-    showToast('📋 分享文本已复制');
+    try { await navigator.clipboard.writeText(text); } catch(e) { document.execCommand('copy'); }
+    showToast('📋 分享文本已复制到剪贴板');
   }
 }
 
@@ -1594,13 +1595,15 @@ ${(() => {
 </body>
 </html>`;
 
-  // Open in new window for printing
-  const win = window.open('', '_blank');
-  win.document.write(reportHTML);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 500);
-  showToast('✅ 报告已生成，请使用打印/Ctrl+P 保存为 PDF');
+  // Download as HTML file (mobile-friendly Blob approach)
+  const blob = new Blob([reportHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '_报告.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ 报告已生成，已下载为 HTML 文件，打开后用浏览器打印为 PDF');
 }
 
 async function initApp() {
