@@ -1,11 +1,16 @@
 package com.moneylens.app;
 
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.view.View;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -17,6 +22,11 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -115,8 +125,48 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        webView.addJavascriptInterface(new WebAppInterface(), "AndroidFileSaver");
+
         // Try local first (offline), fall back to remote
         webView.loadUrl(LOCAL_URL);
+    }
+
+    /** JavaScript interface to save files to the Downloads folder */
+    public class WebAppInterface {
+        @JavascriptInterface
+        public void saveTextFile(String filename, String content, String mimeType) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Android 10+ use MediaStore
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
+                    values.put(MediaStore.Downloads.MIME_TYPE, mimeType != null ? mimeType : "text/plain");
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri != null) {
+                        OutputStream os = getContentResolver().openOutputStream(uri);
+                        os.write(content.getBytes(StandardCharsets.UTF_8));
+                        os.close();
+                        values.clear();
+                        values.put(MediaStore.Downloads.IS_PENDING, 0);
+                        getContentResolver().update(uri, values, null, null);
+                    }
+                } else {
+                    // Android 7-9 write directly
+                    File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!dir.exists()) dir.mkdirs();
+                    File file = new File(dir, filename);
+                    FileOutputStream fos = new FileOutputStream(file);
+                    fos.write(content.getBytes(StandardCharsets.UTF_8));
+                    fos.close();
+                }
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                    "已保存到「下载」文件夹: " + filename, Toast.LENGTH_LONG).show());
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                    "保存失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }
     }
 
     @Override

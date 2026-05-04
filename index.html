@@ -1766,14 +1766,20 @@ function hideDataView() {
 function downloadDataFile() {
   const text = window._dataJSON;
   if (!text) return;
+  const fname = window._dataFileName || 'data.json';
+  if (typeof AndroidFileSaver !== 'undefined') {
+    AndroidFileSaver.saveTextFile(fname, text, 'application/json');
+    showToast('✅ 数据已保存到「下载」文件夹');
+    return;
+  }
   const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = window._dataFileName || 'data.json';
+  a.download = fname;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ 数据已保存到「下载」文件夹');
+  showToast('✅ 数据已保存，请到手机「下载」或「文件管理」中查看');
 }
 
 async function copyDataContent() {
@@ -1790,30 +1796,41 @@ function hideReportView() {
 function downloadReport() {
   const html = window._reportHTML;
   if (!html) return;
+  const fname = window._reportFileName || 'report.html';
+  if (typeof AndroidFileSaver !== 'undefined') {
+    AndroidFileSaver.saveTextFile(fname, html, 'text/html');
+    showToast('✅ 报告已保存到「下载」文件夹');
+    return;
+  }
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = window._reportFileName || 'report.html';
+  a.download = fname;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ 报告已保存到「下载」文件夹');
+  showToast('✅ 报告已保存，请到手机「下载」或「文件管理」中查看');
 }
 
 async function shareReportFile() {
   const html = window._reportHTML;
   if (!html) return;
-  const blob = new Blob([html], { type: 'text/html' });
+  // Try navigator.share first
   try {
-    const file = new File([blob], window._reportFileName || 'report.html', { type: 'text/html' });
+    const file = new File([new Blob([html], { type: 'text/html' })], window._reportFileName || 'report.html', { type: 'text/html' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'MoneyLens 财务报告' });
       return;
     }
   } catch(e) {}
-  // Fallback: copy link or text
-  try { await navigator.clipboard.writeText('MoneyLens 财务报告已生成，请在App内查看'); } catch(e) {}
-  showToast('📋 分享链接已复制');
+  // Fallback: save and share via Android interface
+  const fname = window._reportFileName || 'report.html';
+  if (typeof AndroidFileSaver !== 'undefined') {
+    AndroidFileSaver.saveTextFile(fname, html, 'text/html');
+  } else {
+    try { await navigator.clipboard.writeText('MoneyLens 财务报告已生成'); } catch(e) {}
+  }
+  showToast('📋 报告已保存到「下载」文件夹，可从那分享');
 }
 
 // Session history panel
