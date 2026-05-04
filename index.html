@@ -312,6 +312,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </button>
 </div>
 
+<!-- Data Viewer Modal -->
+<div class="modal-overlay" id="dataModal">
+  <div class="modal-content" style="height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3>📥 数据导出</h3>
+      <button class="close-modal" onclick="hideDataView()">✕</button>
+    </div>
+    <pre id="dataContent" style="flex:1;overflow:auto;font-size:11px;line-height:1.5;margin:12px 0;padding:8px;background:#f8f9fa;border-radius:8px;white-space:pre-wrap;word-break:break-all;color:#1e293b"></pre>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-primary" style="flex:1;padding:10px" onclick="downloadDataFile()">💾 保存到本地</button>
+      <button class="btn btn-primary" style="flex:1;padding:10px" onclick="copyDataContent()">📋 复制内容</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report Viewer Modal -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-content" style="height:92vh;padding:0;overflow:hidden;border-radius:16px;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0">
+      <button class="close-modal" style="position:static;font-size:14px;color:var(--text)" onclick="hideReportView()">← 返回</button>
+      <div style="display:flex;gap:8px">
+        <button class="header-btn" style="position:static;background:var(--primary);color:#fff;border:none;width:auto;padding:4px 14px;border-radius:8px;font-size:12px" onclick="downloadReport()">💾 保存</button>
+        <button class="header-btn" style="position:static;background:var(--primary);color:#fff;border:none;width:auto;padding:4px 14px;border-radius:8px;font-size:12px" onclick="shareReportFile()">📤 分享</button>
+      </div>
+    </div>
+    <iframe id="reportIframe" style="flex:1;width:100%;border:none;background:#fff"></iframe>
+  </div>
+</div>
+
 <!-- Guide Modal -->
 <div class="modal-overlay" id="guideModal">
   <div class="modal-content">
@@ -400,10 +429,10 @@ function parseCSV(text) {
     if (parts.length <= Math.max(...Object.values(colMap))) { badRows++; continue; }
     try {
       const typeStr = (parts[colMap.type] || '').trim();
-      const hasIncome = typeStr.includes('收入') || typeStr.includes('收入');
-      const hasExpense = typeStr.includes('支出') || typeStr.includes('支出');
+      const hasIncome = typeStr.includes('收入');
+      const hasExpense = typeStr.includes('支出');
       if (colMap.type !== undefined && !hasIncome && !hasExpense) continue;
-      const amtStr = parts[colMap.amount].replace(/[^\\-\\d.]/g, '');
+      const amtStr = parts[colMap.amount].replace(/[^-\d.]/g, '');
       const amount = parseFloat(amtStr);
       if (isNaN(amount) || Math.abs(amount) <= 0) { badRows++; continue; }
       records.push({
@@ -1440,14 +1469,11 @@ async function exportData() {
       return;
     }
   } catch(e) {}
-  // Fallback: download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ 数据已下载，可通过文件管理器分享到微信/QQ');
+  // Fallback: show inline
+  window._dataJSON = JSON.stringify(data, null, 2);
+  window._dataFileName = fileName;
+  document.getElementById('dataContent').textContent = window._dataJSON;
+  document.getElementById('dataModal').classList.add('show');
 }
 
 async function shareData() {
@@ -1722,24 +1748,72 @@ ${(() => {
 </body>
 </html>`;
 
-  const blob = new Blob([reportHTML], { type: 'text/html' });
-  const fileName = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '_报告.html';
-  // Try system share first (send to WeChat/QQ directly)
+  // Store for share/download buttons
+  window._reportHTML = reportHTML;
+  window._reportFileName = 'MoneyLens_' + new Date().toISOString().slice(0, 10) + '_报告.html';
+  // Show inline viewer
+  const iframe = document.getElementById('reportIframe');
+  iframe.srcdoc = reportHTML;
+  document.getElementById('reportModal').classList.add('show');
+  showToast('✅ 报告已下载，可通过文件管理器分享到微信/QQ');
+}
+
+// Data viewer
+function hideDataView() {
+  document.getElementById('dataModal').classList.remove('show');
+}
+
+function downloadDataFile() {
+  const text = window._dataJSON;
+  if (!text) return;
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = window._dataFileName || 'data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ 数据已保存到「下载」文件夹');
+}
+
+async function copyDataContent() {
+  const text = window._dataJSON;
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); showToast('📋 已复制到剪贴板'); } catch(e) { showToast('复制失败，请手动选择复制'); }
+}
+
+// Report viewer
+function hideReportView() {
+  document.getElementById('reportModal').classList.remove('show');
+}
+
+function downloadReport() {
+  const html = window._reportHTML;
+  if (!html) return;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = window._reportFileName || 'report.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ 报告已保存到「下载」文件夹');
+}
+
+async function shareReportFile() {
+  const html = window._reportHTML;
+  if (!html) return;
+  const blob = new Blob([html], { type: 'text/html' });
   try {
-    const file = new File([blob], fileName, { type: 'text/html' });
+    const file = new File([blob], window._reportFileName || 'report.html', { type: 'text/html' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'MoneyLens 财务报告' });
       return;
     }
   } catch(e) {}
-  // Fallback: download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ 报告已下载，可通过文件管理器分享到微信/QQ');
+  // Fallback: copy link or text
+  try { await navigator.clipboard.writeText('MoneyLens 财务报告已生成，请在App内查看'); } catch(e) {}
+  showToast('📋 分享链接已复制');
 }
 
 // Session history panel
